@@ -4,6 +4,9 @@ trait Value
 
 case class ListValue(xs: List[Value]) extends Value
 case class ArrayValue(xs: Array[Value]) extends Value
+case class FunValue(closureValues: Seq[Value], argCount: Int, body: Term) extends Value
+case class PartialAppValue(args: Seq[Value], fun: FunValue) extends Value
+case class ErrorValue(message: String) extends Value
 
 trait LiteralValue extends Value
 {
