@@ -59,7 +59,7 @@ object Parser extends StandardTokenParsers with PackratParsers
 
     def <~- [U] (parser2: Parser[U]) = parser <~ (rep("\n") ~> parser2)
 
-    def -+ = parser ~ ((nl ~> parser) *) ^^ { case x ~ xs => x :: xs }
+    def -+ = parser ~ ((rep("\n") ~> parser) *) ^^ { case x ~ xs => x :: xs }
     
     def -* = ((this -+) ?) ^^ { _.getOrElse(Nil) }
   }
@@ -93,27 +93,62 @@ object Parser extends StandardTokenParsers with PackratParsers
   }
   lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toFloat) }
   lazy val strVal = stringLit										^^ StringValue
-  lazy val builtinFunVal = (
-      "neg" | "+" | "-" | "*" | "/" | "%" | 
-      "not" | "&" | "|" | "^" | 
+  lazy val builtinFunVal1 = (
+      "-" | "~" | "cond" | "array" | "arraylength" | "nth" | "update" | "istypeof") ^^ {
+    s => BuiltinFunValue(BuiltinFunction.withName(s))
+  }
+  lazy val builtinFunVal2 = ("#" ~> (
+      "+" | "-" | "*" | "/" | "%" | 
+      "&" | "|" | "^" | 
       "<<" | ">>" |
       "==" | "!=" | "<" | "<=" | ">" | ">=" |
-      "::" | 
-      "array" | "arraylength" | "nth" | "update" |
-      "istypeof") ^^ { case s => BuiltinFunValue(BuiltinFunction.withName(s)) }
+      "::")) ^^ { 
+    s => BuiltinFunValue(BuiltinFunction.withName("#" + s))
+  }
+  lazy val builtinFunVal = builtinFunVal1 | builtinFunVal2
   lazy val value = trueVal | falseVal | nilVal | charVal | intVal | floatVal | strVal | builtinFunVal 
+  
+  case class BinOp(s: String) extends Positional
+  
+  lazy val binOp1 = p("::"											^^ BinOp)
+  lazy val binOp2 = p(("==" | "!=" | "<" | "<=" | ">" | ">=")		^^ BinOp)
+  lazy val binOp3 = p(("<<" | ">>")									^^ BinOp)
+  lazy val binOp4 = p(("&" | "|" | "^")								^^ BinOp)
+  lazy val binOp5 = p(("+" | "-")									^^ BinOp)
+  lazy val binOp6 = p(("*" | "/" | "%")								^^ BinOp)
+ 
+  case class IfOp() extends Positional
+  
+  lazy val ifOp = p("if"											^^^ IfOp())
   
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
-    lazy val expr: PackratParser[Term] = app | let | lambda | simpleExpr
+    lazy val expr: PackratParser[Term] = expr1
+    lazy val expr1: PackratParser[Term] = p(expr2 ~~ binOp1 ~- (expr1 | expr2) ^^ mkBinOp) | expr2
+    lazy val expr2: PackratParser[Term] = p((expr2 | expr3) ~~ binOp2 ~- expr3 ^^ mkBinOp) | expr3
+    lazy val expr3: PackratParser[Term] = p((expr3 | expr4) ~~ binOp3 ~- expr4 ^^ mkBinOp) | expr4
+    lazy val expr4: PackratParser[Term] = p((expr4 | expr5) ~~ binOp4 ~- expr5 ^^ mkBinOp) | expr5
+    lazy val expr5: PackratParser[Term] = p((expr5 | expr6) ~~ binOp5 ~- expr6 ^^ mkBinOp) | expr6
+    lazy val expr6: PackratParser[Term] = p((expr6 | exprN) ~~ binOp6 ~- exprN ^^ mkBinOp) | exprN
+    
+    lazy val exprN: PackratParser[Term] = app | let | lambda | ifElse | simpleExpr
     lazy val simpleExpr = variable | literal | ("(" ~-> nlParsers.expr <~- ")")
   
     lazy val app = p(simpleExpr ~~ (simpleExpr ~+)					^^ { case t ~ ts => App(t, ts) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)				^^ { case bs ~ t => Let(bs, t) })
     lazy val lambda = p("\\" ~> (arg +) ~ ("." ~-> expr)			^^ { case as ~ t => Lambda(as, t) })
+    lazy val ifElse = p(ifOp ~- simpleExpr ~- nlParsers.expr ~- ("else" ~-> expr) ^^ { 
+      case io ~ t1 ~ t2 ~ t3 => App(Literal(BuiltinFunValue(BuiltinFunction.withName("cond"))).setPos(io.pos), List(t2, t3, t1))
+    })
     lazy val variable = p(ident										^^ Var)
     lazy val literal = p(value										^^ Literal)
   }
+  
+  def mkBinOp(x: Term ~ BinOp ~ Term) =
+    x match { 
+      case t1 ~ (bo @ BinOp(s)) ~ t2 =>
+        App(Literal(BuiltinFunValue(BuiltinFunction.withName("#" + s))).setPos(bo.pos), List(t1, t2))
+    }
   
   val nlParsers = Parsers()(NlMode.Nl)  
   val noNlParsers = Parsers()(NlMode.NoNl)

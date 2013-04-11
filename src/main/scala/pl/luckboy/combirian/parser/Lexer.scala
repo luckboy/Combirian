@@ -6,6 +6,7 @@ case class Lexer() extends StdLexical
 {
   delimiters ++= List(
       "\\", "=", "(", ")", ";", "\n",
+      "#",
       "+", "-", "*", "/", "%",
       "&", "|", "^", 
       "<<", ">>",
@@ -15,8 +16,7 @@ case class Lexer() extends StdLexical
   reserved ++= List(
 	  "let", "in",
       "true", "false", "nil",
-      "neg", "not",
-      "array", "arraylength", "nth", "update",
+      "if", "else", "cond", "array", "arraylength", "nth", "updated",
       "istypeof")
   
   case class CharLit(chars: String) extends Token
