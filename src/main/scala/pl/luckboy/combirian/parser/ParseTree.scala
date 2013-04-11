@@ -27,7 +27,7 @@ trait Term extends Positional
       case Let(binds, body) =>
         "let " ++ binds.map { _.toIntendedString(n + 4) }.mkString("\n" + (" " * (n + 4))) + "\n" + (" " * n) + "in  " + body.toIntendedString(n + 4)
       case Lambda(args, body) =>
-        "\\" + args.mkString(" ") + " . " + body.toIntendedString(n + 2)
+        "\\" + args.mkString(" ") + " -> " + body.toIntendedString(n + 2)
       case Var(name) =>
         name
       case Literal(value) =>

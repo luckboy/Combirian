@@ -136,9 +136,11 @@ object Parser extends StandardTokenParsers with PackratParsers
   
     lazy val app = p(simpleExpr ~~ (simpleExpr ~+)					^^ { case t ~ ts => App(t, ts) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)				^^ { case bs ~ t => Let(bs, t) })
-    lazy val lambda = p("\\" ~> (arg +) ~ ("." ~-> expr)			^^ { case as ~ t => Lambda(as, t) })
+    lazy val lambda = p("\\" ~> (arg +) ~ ("->" ~-> expr)			^^ { case as ~ t => Lambda(as, t) })
     lazy val ifElse = p(ifOp ~- simpleExpr ~- nlParsers.expr ~- ("else" ~-> expr) ^^ { 
-      case io ~ t1 ~ t2 ~ t3 => App(Literal(BuiltinFunValue(BuiltinFunction.withName("cond"))).setPos(io.pos), List(t2, t3, t1))
+      case io ~ t1 ~ t2 ~ t3 => 
+        App(Literal(BuiltinFunValue(BuiltinFunction.withName("cond"))).setPos(io.pos), 
+            List(Lambda(List(Arg("_true").setPos(t2.pos)), t2).setPos(t2.pos), Lambda(List(Arg("_false").setPos(t3.pos)), t3).setPos(t3.pos), t1))
     })
     lazy val variable = p(ident										^^ Var)
     lazy val literal = p(value										^^ Literal)
