@@ -3,17 +3,32 @@ import scala.collection.immutable.IntMap
 
 trait EnvironmentLike[+This <: EnvironmentLike[This]]
 {
-  val globalVarValues: IntMap[Value]
-  val localVarValues: Vector[Value]
+  def repr: This = asInstanceOf[This]
   
-  def withLocalVars(values: Seq[Value]): This
+  protected val globalVarValues: IntMap[Value]
+  protected val localVarValues: Array[Value]
+  protected var localDefinedVarCount = 0
   
-  def varValue(idx: Int) = 
-    if(idx >= 0)
-      globalVarValues.getOrElse(idx, ErrorValue("undefined variable"))
-    else
-      if(localVarValues.size >= (-idx) - 1)
-        localVarValues((-idx) - 1)
-      else
-        ErrorValue("undefined variable")
+  protected def createEnv(maxLocalVarCount: Int): This
+  
+  def withClosureAndArgs(closureVarValues: Seq[Value], argValues: Seq[Value], maxLocalVarCount: Int)(f: This => Value) =
+    createEnv(maxLocalVarCount).withLocalVars(closureVarValues ++ argValues)(f)
+  
+  def withLocalVars(values: Seq[Value])(f: This => Value) =
+    if(localDefinedVarCount + values.size <= localVarValues.length) {
+      var i = 0
+      while(i < values.size) {
+        localVarValues(localDefinedVarCount + i) = values(i)
+        i += 1
+      }
+      localDefinedVarCount += values.size
+      val res = f(repr)
+      localDefinedVarCount -= values.size
+      res
+    } else
+      ErrorValue("stack overflow", Seq())
+
+  def globalVarValue(idx: Int) = globalVarValues.getOrElse(idx, ErrorValue("undefined global variable", Seq()))
+
+  def localVarValue(idx: Int) = if(localDefinedVarCount >= idx) localVarValues(idx) else ErrorValue("undefined local variable", Seq())
 }

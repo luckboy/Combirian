@@ -16,7 +16,7 @@ case class Lexer() extends StdLexical
   reserved ++= List(
 	  "let", "in",
       "true", "false", "nil",
-      "if", "else", "cond", "array", "arraylength", "nth", "updated",
+      "if", "else", "cond", "array", "length", "contains", "nth", "updated",
       "istypeof")
   
   case class CharLit(chars: String) extends Token

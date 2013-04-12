@@ -23,8 +23,9 @@ object BuiltinFunction extends Enumeration
   val Cons = Value("#::")
   val Cond = Value("cond")
   val Array = Value("array")
-  val Arraylength = Value("arraylength")
+  val Length = Value("length")
+  val Contains = Value("contains")
   val Nth = Value("nth")
-  val Update = Value("updated")
+  val Updated = Value("updated")
   val Istypeof = Value("istypeof")
 }
