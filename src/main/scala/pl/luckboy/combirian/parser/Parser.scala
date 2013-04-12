@@ -85,13 +85,13 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val intVal = elem("", _.isInstanceOf[lexical.IntLit])		^^ {
     e => 
       if(e.chars.startsWith("0x") || e.chars.startsWith("0X"))
-        IntValue(java.lang.Integer.parseInt(e.chars.substring(2), 16))
+        IntValue(java.lang.Long.parseLong(e.chars.substring(2), 16))
       else if(e.chars.startsWith("0"))
-        IntValue(java.lang.Integer.parseInt(e.chars.substring(1), 8))
+        IntValue(java.lang.Long.parseLong(e.chars.substring(1), 8))
       else
-        IntValue(java.lang.Integer.parseInt(e.chars, 10))
+        IntValue(java.lang.Long.parseLong(e.chars, 10))
   }
-  lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toFloat) }
+  lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toDouble) }
   lazy val strVal = stringLit										^^ StringValue
   lazy val builtinFunVal1 = (
       "-" | "~" | "cond" | "array" | "length" | "contains" | "nth" | "updated" | "istypeof") ^^ {

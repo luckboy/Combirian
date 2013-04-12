@@ -91,7 +91,7 @@ case object TrueValue extends LiteralValue
 case object FalseValue extends LiteralValue
 case object NilValue extends LiteralValue
 case class CharValue(x: Char) extends LiteralValue
-case class IntValue(x: Int) extends LiteralValue
-case class FloatValue(x: Float) extends LiteralValue
+case class IntValue(x: Long) extends LiteralValue
+case class FloatValue(x: Double) extends LiteralValue
 case class StringValue(x: String) extends LiteralValue
 case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralValue
