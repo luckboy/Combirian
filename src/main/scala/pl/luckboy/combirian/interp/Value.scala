@@ -16,7 +16,9 @@ trait Value
 }
 
 case class ListValue(elems: List[Value]) extends Value
-case class PartialAppValue(args: Seq[Value], fun: FunValue) extends Value
+case class PartialAppValue(fun: Value, args: Seq[Value]) extends Value
+case class TailRecFunValue(fun: Value) extends Value
+case class TailRecAppValue(fun: Value, args: Seq[Value]) extends Value
 case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]) extends Value
 {
   override def isError = true
@@ -69,7 +71,7 @@ case class NonSharedHashValue(hashMap: HashMap[Value, Value]) extends HashValue
 }
 
 trait FunValue extends Value
-case class CombinatorValue(combinatorBind: CombinatorBind) extends FunValue
+case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends FunValue
 case class LambdaValue(closure: Seq[Value], lambda: Lambda) extends FunValue
 
 trait LiteralValue extends Value

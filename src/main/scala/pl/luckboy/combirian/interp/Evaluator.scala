@@ -22,6 +22,9 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
         lambda(closureVarValues, argCount, body, maxLocalVarCount)(env)
       case GlobalVar(idx, _)                                              =>
         env.globalVarValue(idx)
+      case TailRecGlobalVar(idx, _)                                       =>
+        val value = env.globalVarValue(idx)
+        if(!value.isError) TailRecFunValue(value) else value
       case SharedLocalVar(idx, _)                                         =>
         env.localVarValue(idx).shared
       case NonSharedLocalVar(idx, _)                                      =>
