@@ -10,13 +10,12 @@ case class Lexer() extends StdLexical
       "+", "-", "*", "/", "%",
       "&", "|", "^", 
       "<<", ">>",
-      "==", "!=", "<", "<=", ">", ">=",
-      "::")
+      "==", "!=", "<", "<=", ">", ">=")
   
   reserved ++= List(
 	  "let", "in",
       "true", "false", "nil",
-      "if", "else", "cond", "tuple", "array", "hash", "length", "haskey", "keys", "nth", "updated", "istypeof",
+      "if", "else", "cond", "tuple", "array", "hash", "size", "haskey", "keys", "nth", "updated", "istypeof",
       "intfrom", "floatfrom")
   
   case class CharLit(chars: String) extends Token

@@ -15,7 +15,6 @@ trait Value
   def copyAsNonShared: Value = this
 }
 
-case class ListValue(elems: List[Value]) extends Value
 case class PartialAppValue(fun: Value, args: Seq[Value]) extends Value
 case class TailRecFunValue(fun: Value) extends Value
 case class TailRecAppValue(fun: Value, args: Seq[Value]) extends Value
