@@ -25,7 +25,7 @@ case class Let(binds: Seq[Bind], body: Term, pos: Position) extends Term
 {
   val bindTerms = binds.map { _.body }
 }
-case class Lambda(closureVarIdxs: Seq[Int], argNames: Seq[String], body: Term, localVarCount: Int, pos: Position) extends Term
+case class Lambda(closureVarIndexes: Seq[Int], argNames: Seq[String], body: Term, localVarCount: Int, pos: Position) extends Term
 {
   val argCount = argNames.size
 }

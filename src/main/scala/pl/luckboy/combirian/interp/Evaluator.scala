@@ -4,47 +4,47 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
 {
   def eval(term: Term)(env: Env): Value =
     (term match {
-      case App(fun, args, _)                                                 =>
+      case App(fun, args, _)         =>
         val funValue = eval(fun)(env)
-        evalTerms(args)(env) match {
-          case Right(argValues) => app(funValue, argValues)(env)
+        valuesFromTerms(args)(env) match {
+          case Right(argValues) => funValue(argValues)(this)(env)
           case Left(errValue)   => errValue
         }
-      case letTerm @ Let(_, body, _)                                         =>
-        evalTerms(letTerm.bindTerms)(env) match {
+      case letTerm @ Let(_, body, _) =>
+        valuesFromTerms(letTerm.bindTerms)(env) match {
           case Right(bindValues) => env.withLocalVars(bindValues)(eval(body))
           case Left(errValue)    => errValue
         }
-      case lambdaTerm @ Lambda(closureVarIndexes, _, body, localVarCount, _) =>
-        val closureVarValues = closureVarIndexes.map { env.localVarValue(_).shared }
-        lambda(closureVarValues, lambdaTerm.argCount, body, localVarCount)(env)
-      case GlobalVar(idx, _)                                                 =>
+      case lambda: Lambda            =>
+        val closureVarValues = lambda.closureVarIndexes.map { env.localVarValue(_).shared }
+        LambdaValue(closureVarValues.map { _.shared }, lambda)
+      case GlobalVar(idx, _)         =>
         env.globalVarValue(idx)
-      case TailRecGlobalVar(idx, _)                                          =>
+      case TailRecGlobalVar(idx, _)  =>
         val value = env.globalVarValue(idx)
         if(!value.isError) TailRecFunValue(value) else value
-      case SharedLocalVar(idx, _)                                            =>
+      case SharedLocalVar(idx, _)    =>
         env.localVarValue(idx).shared
-      case NonSharedLocalVar(idx, _)                                         =>
+      case NonSharedLocalVar(idx, _) =>
         env.localVarValue(idx).copyAsNonShared
-      case Literal(value, _)                                                 =>
+      case Literal(value, _)         =>
         value
     }).withPos(term.pos)
   
-  def evalTerms(terms: Seq[Term])(env: Env) = {
+  def valuesFromTerms(terms: Seq[Term])(env: Env) = {
     val values = new Array[Value](terms.size)
     var errValue = None: Option[Value]
     var i = 0
     val termIter = terms.iterator 
     while(i < values.length && errValue.isEmpty) {
-      val value = eval(termIter.next())(env)
+      val value = valueFromTerm(termIter.next())(env)
       if(value.isError) errValue = Some(value) else values(i) = value
       i += 1
     }
     errValue.toLeft(values.toSeq)
   }
   
-  def app(funValue: Value, argValues: Seq[Value])(env: Env): Value
-  
-  def lambda(closureVarValues: Seq[Value], argCount: Int, body: Term, maxLocalVarCount: Int)(env: Env): Value
+  def valueFromTerm(term: Term)(env: Env) = eval(term)(env)
+
+  def postFullApply(funValue: Value, argValues: Seq[Value])(retValue: Value)(env: Env) = retValue
 }

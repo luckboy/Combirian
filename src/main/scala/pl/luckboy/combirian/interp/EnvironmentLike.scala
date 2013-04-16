@@ -11,8 +11,8 @@ trait EnvironmentLike[+This <: EnvironmentLike[This]]
   
   protected def createEnv(maxLocalVarCount: Int): This
   
-  def withClosureAndArgs(closureVarValues: Seq[Value], argValues: Seq[Value], maxLocalVarCount: Int)(f: This => Value) =
-    createEnv(maxLocalVarCount).withLocalVars(closureVarValues ++ argValues)(f)
+  def withClosureAndArgs(closureVarValues: Seq[Value], argValues: Seq[Value], localVarCount: Int)(f: This => Value) =
+    createEnv(closureVarValues.size + argValues.size + localVarCount).withLocalVars(closureVarValues ++ argValues)(f)
   
   def withLocalVars(values: Seq[Value])(f: This => Value) =
     if(localDefinedVarCount + values.size <= localVarValues.length) {
