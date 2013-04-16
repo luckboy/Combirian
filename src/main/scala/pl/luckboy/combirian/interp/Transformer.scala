@@ -26,10 +26,10 @@ object Transformer
       case (_, Left(errs))            => Left(errs)
     }
 
-  private def resultForFile[T](res: Either[Seq[InterpreterError], T], file: Option[java.io.File]) =
+  private def resultForFile[T](res: Either[Seq[InterpreterError], T], file: java.io.File) =
     res match {
       case Right(x)   => Right(x)
-      case Left(errs) => Left(errs.map { _.copy(file = file ) })
+      case Left(errs) => Left(errs.map { _.copy(file = Some(file)) })
     }
   
   private def closureVarIndexesFromTerm(term: parser.Term)(localVarIdxs: Map[String, Int]): Map[String, Int] =
@@ -174,19 +174,18 @@ object Transformer
         }
     }.right.map(Tree).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
     
-  def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree]): Either[Seq[InterpreterError], Tree] = {
+  def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[InterpreterError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
     allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None)): Either[Seq[InterpreterError], Scope]) {
       case (Right(scope), (file, parseTree)) => scopeFromParseTree(parseTree)(scope)
       case (Left(errs), _)                   => Left(errs)
     }.right.flatMap {
       scope =>
-        allParseTrees.foldLeft(Right(Tree(IntMap())): Either[Seq[InterpreterError], Tree]) {
-          case (Right(tree), (file, parseTree)) =>
-            transformParseTree(parseTree)(scope).right.map { tree2 => tree ++ tree2.forFile(file) }
-          case (Left(errs), (file, _))          =>
-            resultForFile(Left(errs), file)
-        }
+        allParseTrees.foldLeft((Right(tree), tree): (Either[Seq[InterpreterError], Tree], Tree)) {
+          case ((res, newTree), (file, parseTree)) =>
+            val res2 = transformParseTree(parseTree)(scope).right.map { newTree2 => newTree ++ file.map { newTree2.forFile(_) }.getOrElse(newTree2) }
+            (res2, res.right.getOrElse(newTree))
+        }._1
     }
   }
 }

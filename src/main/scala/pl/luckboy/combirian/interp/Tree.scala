@@ -6,7 +6,7 @@ case class Tree(combinatorBinds: IntMap[CombinatorBind])
 {
   def ++ (tree: Tree) = Tree(combinatorBinds ++ tree.combinatorBinds)
   
-  def forFile(file: Option[java.io.File]) = Tree(IntMap() ++ combinatorBinds.mapValues { _.copy(file = file) })
+  def forFile(file: java.io.File) = Tree(IntMap() ++ combinatorBinds.mapValues { _.copy(file = Some(file)) })
 }
 
 case class CombinatorBind(name: String, combinator: Combinator, file: Option[java.io.File])
