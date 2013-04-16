@@ -13,7 +13,7 @@ trait Value
   
   def withFileAndName(file: Option[java.io.File], name: Option[String]): Value = this
   
-  def shared: Value = this
+  def shared: SharedValue
   
   def copyAsNonShared: Value = this
 
@@ -30,7 +30,7 @@ trait Value
     } else
       funValue match {
         case PartialAppValue(fun, args) => PartialAppValue(fun, args ++ argValues.map { _.shared })
-        case _                          => PartialAppValue(funValue, argValues.map { _.shared })
+        case _                          => PartialAppValue(funValue.shared, argValues.map { _.shared })
       }
   
   def apply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = 
@@ -42,7 +42,12 @@ trait Value
   def force: Value = this
 }
 
-case class PartialAppValue(fun: Value, args: Seq[Value]) extends Value
+trait SharedValue extends Value
+{
+  override def shared: SharedValue = this
+}
+
+case class PartialAppValue(fun: SharedValue, args: Seq[SharedValue]) extends SharedValue
 {
   override def argCount = fun.argCount - args.size
   
@@ -53,7 +58,7 @@ case class PartialAppValue(fun: Value, args: Seq[Value]) extends Value
       ErrorValue("incorrect number of arguments", Seq())
 }
 
-case class TailRecFunValue(fun: Value) extends Value
+case class TailRecFunValue(fun: Value) extends SharedValue
 {
   override def argCount = fun.argCount
   
@@ -64,13 +69,13 @@ case class TailRecFunValue(fun: Value) extends Value
       ErrorValue("incorrect number of arguments", Seq())
 }
 
-case class TailRecAppValue(fun: Value, args: Seq[Value]) extends Value
+case class TailRecAppValue(fun: Value, args: Seq[Value]) extends SharedValue
 {
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value =
     ErrorValue("value of tail recursive application", Seq())
 }
 
-class LazyValue(f: => Value) extends Value
+class LazyValue(f: => Value) extends SharedValue
 {
   override def argCount = force.argCount
   
@@ -87,7 +92,7 @@ object LazyValue
   def unapply(value: LazyValue) = Some(value.force)
 }
 
-case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]) extends Value
+case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]) extends SharedValue
 {
   override def isError = true
     
@@ -114,17 +119,17 @@ case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]
 
 trait ArrayValue extends Value
 {
-  def elems: Seq[Value]
+  def elems: Seq[SharedValue]
 }
 
-case class SharedArrayValue(elems: Seq[Value]) extends ArrayValue
+case class SharedArrayValue(elems: Seq[SharedValue]) extends ArrayValue with SharedValue
 {
   override def copyAsNonShared = NonSharedArrayValue(elems.toArray.clone)
 }
 
-case class NonSharedArrayValue(array: Array[Value]) extends ArrayValue
+case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 {
-  def elems: Seq[Value] = array.toSeq
+  def elems = array.toSeq
   
   override def shared = SharedArrayValue(elems)
 }
@@ -133,15 +138,15 @@ case class NonSharedArrayValue(array: Array[Value]) extends ArrayValue
 
 trait HashValue extends Value
 {
-  def elems: Map[Value, Value]
+  def elems: Map[SharedValue, SharedValue]
 }
 
-case class SharedHashValue(elems: Map[Value, Value]) extends HashValue
+case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
 {
-  override def copyAsNonShared = NonSharedHashValue(HashMap[Value, Value]() ++= elems)
+  override def copyAsNonShared = NonSharedHashValue(HashMap[SharedValue, SharedValue]() ++= elems)
 }
 
-case class NonSharedHashValue(hashMap: HashMap[Value, Value]) extends HashValue
+case class NonSharedHashValue(hashMap: HashMap[SharedValue, SharedValue]) extends HashValue
 {
   def elems = hashMap.toMap
 
@@ -150,7 +155,7 @@ case class NonSharedHashValue(hashMap: HashMap[Value, Value]) extends HashValue
 
 // FunValue
 
-trait FunValue extends Value
+trait FunValue extends SharedValue
 
 case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends FunValue
 {
@@ -171,7 +176,7 @@ case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends Fun
       ErrorValue("incorrect number of arguments", Seq())
 }
 
-case class LambdaValue(closure: Seq[Value], lambda: Lambda) extends FunValue
+case class LambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends FunValue
 {
   override def argCount = lambda.argCount
   
@@ -190,7 +195,7 @@ case class LambdaValue(closure: Seq[Value], lambda: Lambda) extends FunValue
 
 // LiteralValue
 
-trait LiteralValue extends Value
+trait LiteralValue extends SharedValue
 {
   override def toString =
     this match {
