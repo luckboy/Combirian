@@ -6,16 +6,14 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
     (term match {
       case App(fun, args, _)                                              =>
         val funValue = eval(fun)(env)
-        val argValues = args.map { eval(_)(env) }
-        argValues.find { _.isError } match {
-          case None           => app(funValue, argValues)(env)
-          case Some(errValue) => errValue
+        evalTerms(args)(env) match {
+          case Right(argValues) => app(funValue, argValues)(env)
+          case Left(errValue)   => errValue
         }
       case Let(bindTerms, body, _)                                        =>
-        val bindValues = bindTerms.map { eval(_)(env) }
-        bindValues.find { _.isError } match {
-          case None           => env.withLocalVars(bindValues)(eval(body))
-          case Some(errValue) => errValue
+        evalTerms(bindTerms)(env) match {
+          case Right(bindValues) => env.withLocalVars(bindValues)(eval(body))
+          case Left(errValue)    => errValue
         }
       case Lambda(closureVarIndexes, argCount, body, maxLocalVarCount, _) =>
         val closureVarValues = closureVarIndexes.map { env.localVarValue(_).shared }
@@ -32,6 +30,19 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
       case Literal(value, _)                                              =>
         value
     }).withPos(term.pos)
+  
+  def evalTerms(terms: Seq[Term])(env: Env) = {
+    val values = new Array[Value](terms.size)
+    var errValue = None: Option[Value]
+    var i = 0
+    val termIter = terms.iterator 
+    while(i < values.length && errValue.isEmpty) {
+      val value = eval(termIter.next())(env)
+      if(value.isError) errValue = Some(value) else values(i) = value
+      i += 1
+    }
+    errValue.toLeft(values.toSeq)
+  }
   
   def app(funValue: Value, argValues: Seq[Value])(env: Env): Value
   
