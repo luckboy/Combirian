@@ -18,7 +18,7 @@ object Transformer
   
   case class CombinatorInfo(name: String, argCount: Int)
   
-  private def zipResults[T, U](res1: Either[Seq[InterpreterError], T], res2: Either[Seq[InterpreterError], U]) =
+  private def zipResults[T, U](res1: Either[Seq[TransformerError], T], res2: Either[Seq[TransformerError], U]) =
     (res1, res2) match {
       case (Right(x), Right(y))       => Right(x, y)
       case (Left(errs1), Left(errs2)) => Left(errs1 ++ errs2)
@@ -26,7 +26,7 @@ object Transformer
       case (_, Left(errs))            => Left(errs)
     }
 
-  private def resultForFile[T](res: Either[Seq[InterpreterError], T], file: java.io.File) =
+  private def resultForFile[T](res: Either[Seq[TransformerError], T], file: java.io.File) =
     res match {
       case Right(x)   => Right(x)
       case Left(errs) => Left(errs.map { _.copy(file = Some(file)) })
@@ -67,8 +67,8 @@ object Transformer
         localVarRefCounts
   }
   
-  def transformTerms(terms: Seq[parser.Term])(scope: Scope): Either[Seq[InterpreterError], Seq[Term]] =
-    terms.foldLeft(Right(Nil): Either[Seq[InterpreterError], Seq[Term]]) {
+  def transformTerms(terms: Seq[parser.Term])(scope: Scope): Either[Seq[TransformerError], Seq[Term]] =
+    terms.foldLeft(Right(Nil): Either[Seq[TransformerError], Seq[Term]]) {
       (res, term) => zipResults(res, transformTerm(term, false)(scope)).right.map { case (terms2, term2) => terms2 :+ term2 }
     }
   
@@ -92,7 +92,7 @@ object Transformer
   }
 
   
-  def transformTerm(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[InterpreterError], Term] =
+  def transformTerm(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[TransformerError], Term] =
     term match {
       case parser.App(fun @ parser.Var(funName), args) if canTailRec =>
         scope.currentCombinatorInfo.map {
@@ -102,7 +102,7 @@ object Transformer
                 args2 =>
                   scope.globalVarIdxs.get(combInfo.name).map {
                     idx => Right(App(TailRecGlobalVar(idx, fun.pos), args2, term.pos))
-                  }.getOrElse(Left(Seq(InterpreterError(None, term.pos, "undefined variable " + funName))))                  
+                  }.getOrElse(Left(Seq(TransformerError(None, term.pos, "undefined variable " + funName))))                  
               }
             else
               app(fun, args, term.pos)(scope)
@@ -134,12 +134,12 @@ object Transformer
             }.getOrElse(SharedLocalVar(idx, term.pos))
         }.orElse {
           scope.globalVarIdxs.get(name).map { GlobalVar(_, term.pos) }
-        }.toRight(Seq(InterpreterError(None, term.pos, "undefined variable " + name)))
+        }.toRight(Seq(TransformerError(None, term.pos, "undefined variable " + name)))
       case parser.Literal(value)     =>
         Right(Literal(value, term.pos))
     }
   
-  def scopeFromParseTree(parseTree: parser.ParseTree)(scope: Scope): Either[Seq[InterpreterError], Scope] = {
+  def scopeFromParseTree(parseTree: parser.ParseTree)(scope: Scope): Either[Seq[TransformerError], Scope] = {
     val globalVarIdxsWithPoses = parseTree.defs.zipWithIndex.map {
       case (definition @ parser.Def(name, args, body), idx) => (name, (idx, definition.pos))
     }.toMap
@@ -150,12 +150,12 @@ object Transformer
       Right(scope.withGlobalVarIdxs(globalVarIdxsWithPoses.mapValues { _._1 } ))
     else
       Left(alreadyDefinedCombNamesWithPoses.map { 
-        case (name, pos) => InterpreterError(None, pos, "already defined global variable " + name) 
+        case (name, pos) => TransformerError(None, pos, "already defined global variable " + name) 
       })
   }.left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
   
-  def transformParseTree(parseTree: parser.ParseTree)(scope: Scope): Either[Seq[InterpreterError], Tree] =
-    parseTree.defs.foldLeft(Right(IntMap()): Either[Seq[InterpreterError], IntMap[CombinatorBind]]) {
+  def transformParseTree(parseTree: parser.ParseTree)(scope: Scope): Either[Seq[TransformerError], Tree] =
+    parseTree.defs.foldLeft(Right(IntMap()): Either[Seq[TransformerError], IntMap[CombinatorBind]]) {
       case (res, definition @ parser.Def(name, args, body)) =>
         val argIdxs = args.zipWithIndex.map { case (arg, idx) => (arg.name, idx) }.toMap
         val combInfo = CombinatorInfo(name, args.size)
@@ -174,14 +174,14 @@ object Transformer
         }
     }.right.map(Tree).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
     
-  def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[InterpreterError], Tree] = {
+  def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[TransformerError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
-    allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None)): Either[Seq[InterpreterError], Scope]) {
+    allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None)): Either[Seq[TransformerError], Scope]) {
       case (Right(scope), (file, parseTree)) => scopeFromParseTree(parseTree)(scope)
       case (Left(errs), _)                   => Left(errs)
     }.right.flatMap {
       scope =>
-        allParseTrees.foldLeft((Right(tree), tree): (Either[Seq[InterpreterError], Tree], Tree)) {
+        allParseTrees.foldLeft((Right(tree), tree): (Either[Seq[TransformerError], Tree], Tree)) {
           case ((res, newTree), (file, parseTree)) =>
             val res2 = transformParseTree(parseTree)(scope).right.map { newTree2 => newTree ++ file.map { newTree2.forFile(_) }.getOrElse(newTree2) }
             (res2, res.right.getOrElse(newTree))
