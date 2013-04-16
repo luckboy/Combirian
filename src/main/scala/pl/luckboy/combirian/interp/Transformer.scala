@@ -87,7 +87,7 @@ object Transformer
     val argIdxs = args.zipWithIndex.map { case (arg, i) => (arg.name, i + tmpScope.localVarIdxs.size) }
     val newScope = tmpScope.withLocalVarIdxs(argIdxs)
     transformTerm(body, combInfo.isDefined)(newScope).right.map { 
-      Lambda(closureVarIndexes.values.toSeq, args.size, _, localVarCountFromTerm(body), pos) 
+      Lambda(closureVarIndexes.values.toSeq, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
     }
   }
 
@@ -122,7 +122,7 @@ object Transformer
         val newLocalIdxs = binds.zipWithIndex.map { case (bind, i) => (bind.name, i + scope.localVarIdxs.size) }
         val newScope = scope.withLocalVarIdxs(newLocalIdxs)
         zipResults(transformTerms(binds.map { _.body })(scope), transformTerm(body, canTailRec)(newScope)).right.map {
-          case (bindTerms2, body2) => Let(bindTerms2, body2, term.pos)
+          case (bindTerms2, body2) => Let(binds.map { _.name }.zip(bindTerms2).map(Bind.tupled), body2, term.pos)
         }
       case parser.Lambda(args, body) =>
         lambda(args, body, term.pos, None)(scope)
@@ -169,7 +169,7 @@ object Transformer
         zipResults(res, res2).right.map {
           case (combBinds, body2)=> {
             val idx = scope.globalVarIdxs(name)
-            (combBinds + (idx -> CombinatorBind(name, Combinator(args.size, body2, localVarCountFromTerm(body)), None)))
+            (combBinds + (idx -> CombinatorBind(name, Combinator(args.map { _.name }, body2, localVarCountFromTerm(body)), None)))
           }
         }
     }.right.map(Tree).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
