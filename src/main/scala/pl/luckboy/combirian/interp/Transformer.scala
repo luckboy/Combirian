@@ -9,14 +9,14 @@ object Transformer
       globalVarIdxs: Map[String, Int],
       localVarIdxs: Map[String, Int], 
       localVarRefCounts: Map[String, Int],
-      currentCombinatorInfo: Option[CombinatorInfo])
+      currentCombinatorInfo: Option[TailRecInfo])
   {
     def withLocalVarIdxs(idxs: Iterable[(String, Int)]) = copy(localVarIdxs = localVarIdxs ++ idxs)
 
     def withGlobalVarIdxs(idxs: Iterable[(String, Int)]) = copy(globalVarIdxs = globalVarIdxs ++ idxs)
   }
   
-  case class CombinatorInfo(name: String, argCount: Int)
+  case class TailRecInfo(name: String, argCount: Int)
   
   private def zipResults[T, U](res1: Either[Seq[TransformerError], T], res2: Either[Seq[TransformerError], U]) =
     (res1, res2) match {
@@ -77,7 +77,7 @@ object Transformer
       case (fun2, args2) => App(fun2, args2, pos)
     }
   
-  private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, combInfo: Option[CombinatorInfo])(scope: Scope) = {
+  private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, combInfo: Option[TailRecInfo])(scope: Scope) = {
     val closureVarIndexes = closureVarIndexesFromTerm(body)(scope.localVarIdxs)
     val newLocalVarRefCounts = localVarRefCountsFromTerm(body)((closureVarIndexes.keySet ++ args.map { _.name }).map { (_, 0) }.toMap)
     val tmpScope = scope.copy(
@@ -158,7 +158,7 @@ object Transformer
     parseTree.defs.foldLeft(Right(IntMap()): Either[Seq[TransformerError], IntMap[CombinatorBind]]) {
       case (res, definition @ parser.Def(name, args, body)) =>
         val argIdxs = args.zipWithIndex.map { case (arg, idx) => (arg.name, idx) }.toMap
-        val combInfo = CombinatorInfo(name, args.size)
+        val combInfo = TailRecInfo(name, args.size)
         val newScope = scope.copy(localVarIdxs = argIdxs, currentCombinatorInfo = Some(combInfo))
         val res2 = body match {
           case parser.Lambda(lambdaArgs, lambdaBody) if args.isEmpty =>
