@@ -1,5 +1,5 @@
 package pl.luckboy.combirian.interp
-import scala.collection.mutable.HashMap
+import scala.collection.mutable
 import scala.util.parsing.input.Position
 import scala.annotation.tailrec
 
@@ -133,10 +133,10 @@ trait HashValue extends Value
 
 case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
 {
-  override def copyAsNonShared = NonSharedHashValue(HashMap[SharedValue, SharedValue]() ++= elems)
+  override def copyAsNonShared = NonSharedHashValue(mutable.HashMap[SharedValue, SharedValue]() ++= elems)
 }
 
-case class NonSharedHashValue(hashMap: HashMap[SharedValue, SharedValue]) extends HashValue
+case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]) extends HashValue
 {
   def elems = hashMap.toMap
 
