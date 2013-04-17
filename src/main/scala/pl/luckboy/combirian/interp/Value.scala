@@ -121,7 +121,7 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 {
   def elems = array.toSeq
   
-  override def copyAsShared = SharedArrayValue(elems)
+  override def copyAsShared = SharedArrayValue(array.clone.toSeq)
 }
 
 // HashValue
