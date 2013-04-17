@@ -13,7 +13,7 @@ trait Value
   
   def withFileAndName(file: Option[java.io.File], name: Option[String]): Value = this
   
-  def shared: SharedValue
+  def copyAsShared: SharedValue
   
   def copyAsNonShared: Value = this
 
@@ -29,8 +29,8 @@ trait Value
       if(!retValue.isError) recApply(retValue, otherArgValues)(eval)(env) else retValue
     } else
       funValue match {
-        case PartialAppValue(fun, args) => PartialAppValue(fun, args ++ argValues.map { _.shared })
-        case _                          => PartialAppValue(funValue.shared, argValues.map { _.shared })
+        case PartialAppValue(fun, args) => PartialAppValue(fun, args ++ argValues.map { _.copyAsShared })
+        case _                          => PartialAppValue(funValue.copyAsShared, argValues.map { _.copyAsShared })
       }
   
   def apply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = 
@@ -44,7 +44,7 @@ trait Value
 
 trait SharedValue extends Value
 {
-  override def shared: SharedValue = this
+  override def copyAsShared: SharedValue = this
 }
 
 case class PartialAppValue(fun: SharedValue, args: Seq[SharedValue]) extends SharedValue
@@ -131,7 +131,7 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 {
   def elems = array.toSeq
   
-  override def shared = SharedArrayValue(elems)
+  override def copyAsShared = SharedArrayValue(elems)
 }
 
 // HashValue
@@ -150,7 +150,7 @@ case class NonSharedHashValue(hashMap: HashMap[SharedValue, SharedValue]) extend
 {
   def elems = hashMap.toMap
 
-  override def shared = SharedHashValue(elems)
+  override def copyAsShared = SharedHashValue(elems)
 }
 
 // FunValue
