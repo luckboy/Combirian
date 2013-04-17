@@ -13,7 +13,7 @@ trait Value
   
   def withFileAndName(file: Option[java.io.File], name: Option[String]): Value = this
   
-  def copyAsShared: SharedValue
+  def shared: SharedValue
   
   def copyAsNonShared: Value = this
 
@@ -45,7 +45,7 @@ trait Value
 
 trait SharedValue extends Value
 {
-  override def copyAsShared: SharedValue = this
+  override def shared: SharedValue = this
 }
 
 case class TailRecFunValue(fun: Value) extends SharedValue
@@ -121,7 +121,7 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 {
   def elems = array.toSeq
   
-  override def copyAsShared = SharedArrayValue(array.clone.toSeq)
+  override def shared = SharedArrayValue(elems)
 }
 
 // HashValue
@@ -140,7 +140,7 @@ case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]
 {
   def elems = hashMap.toMap
 
-  override def copyAsShared = SharedHashValue(elems)
+  override def shared = SharedHashValue(elems)
 }
 
 // FunValue
@@ -191,7 +191,7 @@ case class SharedLambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends 
 
 case class NonSharedLambdaValue(closure: Seq[Value], lambda: Lambda) extends LambdaValue
 {
-  def copyAsShared = SharedLambdaValue(closure.map { _.copyAsShared }, lambda)
+  def shared = SharedLambdaValue(closure.map { _.shared }, lambda)
 }
 
 // Partial application
@@ -215,7 +215,7 @@ case class SharedPartialAppValue(fun: SharedValue, args: Seq[SharedValue]) exten
 
 case class NonSharedPartialAppValue(fun: Value, args: Seq[Value]) extends PartialAppValue
 {
-  override def copyAsShared = SharedPartialAppValue(fun.copyAsShared, args.map { _.copyAsShared })
+  override def shared = SharedPartialAppValue(fun.shared, args.map { _.shared })
 }
 
 // LiteralValue
