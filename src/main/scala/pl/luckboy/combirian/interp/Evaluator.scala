@@ -17,7 +17,7 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
         }
       case lambda: Lambda            =>
         val closureVarValues = lambda.closureVarIndexes.map { env.localVarValue(_).copyAsShared }
-        LambdaValue(closureVarValues.map { _.copyAsShared }, lambda)
+        NonSharedLambdaValue(closureVarValues.map { _.copyAsShared }, lambda)
       case GlobalVar(idx, _)         =>
         env.globalVarValue(idx)
       case TailRecGlobalVar(idx, _)  =>

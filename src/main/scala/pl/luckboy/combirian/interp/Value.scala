@@ -29,8 +29,9 @@ trait Value
       if(!retValue.isError) recApply(retValue, otherArgValues)(eval)(env) else retValue
     } else
       funValue match {
-        case PartialAppValue(fun, args) => PartialAppValue(fun, args ++ argValues.map { _.copyAsShared })
-        case _                          => PartialAppValue(funValue.copyAsShared, argValues.map { _.copyAsShared })
+        case SharedPartialAppValue(fun, args)    => NonSharedPartialAppValue(fun, args ++ argValues)
+        case NonSharedPartialAppValue(fun, args) => NonSharedPartialAppValue(fun, args ++ argValues)
+        case _                                   => NonSharedPartialAppValue(funValue, argValues)
       }
   
   def apply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = 
@@ -45,17 +46,6 @@ trait Value
 trait SharedValue extends Value
 {
   override def copyAsShared: SharedValue = this
-}
-
-case class PartialAppValue(fun: SharedValue, args: Seq[SharedValue]) extends SharedValue
-{
-  override def argCount = fun.argCount - args.size
-  
-  override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
-    if(argCount == argValues.size)
-      fun.fullApply(args ++ argValues)(eval)(env)
-    else
-      ErrorValue("incorrect number of arguments", Seq())
 }
 
 case class TailRecFunValue(fun: Value) extends SharedValue
@@ -155,9 +145,9 @@ case class NonSharedHashValue(hashMap: HashMap[SharedValue, SharedValue]) extend
 
 // FunValue
 
-trait FunValue extends SharedValue
+trait FunValue extends Value
 
-case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends FunValue
+case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends FunValue with SharedValue
 {
   override def argCount = combinatorBind.combinator.argCount
   
@@ -176,8 +166,12 @@ case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends Fun
       ErrorValue("incorrect number of arguments", Seq())
 }
 
-case class LambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends FunValue
+trait LambdaValue extends FunValue
 {
+  def closure: Seq[Value]
+
+  def lambda: Lambda
+
   override def argCount = lambda.argCount
   
   @tailrec
@@ -191,6 +185,37 @@ case class LambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends FunVal
       }
     else     
       ErrorValue("incorrect number of arguments", Seq())
+}
+
+case class SharedLambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends LambdaValue with SharedValue
+
+case class NonSharedLambdaValue(closure: Seq[Value], lambda: Lambda) extends LambdaValue
+{
+  def copyAsShared = SharedLambdaValue(closure.map { _.copyAsShared }, lambda)
+}
+
+// Partial application
+
+trait PartialAppValue extends Value
+{
+  def fun: Value
+  
+  def args: Seq[Value]
+
+  override def argCount = fun.argCount - args.size
+  
+  override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
+    if(argCount == argValues.size)
+      fun.fullApply(args ++ argValues)(eval)(env)
+    else
+      ErrorValue("incorrect number of arguments", Seq())
+}
+
+case class SharedPartialAppValue(fun: SharedValue, args: Seq[SharedValue]) extends PartialAppValue with SharedValue
+
+case class NonSharedPartialAppValue(fun: Value, args: Seq[Value]) extends PartialAppValue
+{
+  override def copyAsShared = SharedPartialAppValue(fun.copyAsShared, args.map { _.copyAsShared })
 }
 
 // LiteralValue
