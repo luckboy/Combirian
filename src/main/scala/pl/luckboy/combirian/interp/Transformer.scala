@@ -121,11 +121,11 @@ object Transformer
     term match {
       case parser.App(fun @ parser.Var(funName), args) if canTailRec =>
         scope.currentTailRecInfo.map {
-          combInfo =>
-            if(combInfo.name == funName && !scope.localVarIdxs.contains(funName) && combInfo.argCount == args.size)
+          tailRecInfo =>
+            if(tailRecInfo.name == funName && !scope.localVarIdxs.contains(funName) && tailRecInfo.argCount == args.size)
               transformTerms(args)(scope).right.flatMap {
                 args2 =>
-                  scope.globalVarIdxs.get(combInfo.name).map {
+                  scope.globalVarIdxs.get(tailRecInfo.name).map {
                     idx => Right(App(TailRecGlobalVar(idx, fun.pos), args2, term.pos))
                   }.getOrElse(Left(Seq(TransformerError(None, term.pos, "undefined variable " + funName))))                  
               }
