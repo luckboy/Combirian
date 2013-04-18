@@ -28,12 +28,7 @@ object Tree
     def withLocalVarNames(names: Seq[String]) = 
       copy(
           localVarNames = localVarNames ++ names.zipWithIndex.map { case (name, i) => (i + localVarCount, name) }, 
-          localVarCount = localVarCount + names.size)
-          
-    def withClosureVarNames(names: Seq[Option[String]]) =
-      copy(
-          localVarNames = localVarNames ++ names.zipWithIndex.flatMap { case (name, i) => name.map { (i + localVarCount, _) } }, 
-          localVarCount = localVarCount + names.size)
+          localVarCount = localVarCount + names.size)          
   }
 }
 
@@ -75,10 +70,11 @@ trait Term
         binds.zipWithIndex.map { case (bind, i) => bind.toIntendedStringForScope(n + 4, scope) + " /* l" + (i + scope.localVarCount) + " */" }.mkString("\n" + (" " * (n + 4))) +
         "\n" + (" " * n) + "in  " + body.toIntendedStringForScope(n + 4, newScope)
       case Lambda(closureVarIndexes, argNames, body, localVarCount, _) =>
-        val tmpScope = scope.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "_l" + idx) })
-        val newScope = tmpScope.withLocalVarNames(argNames)
-        "/* " + closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "") + " (l" + idx + ")" }.mkString(", ") + " */" +
-        "\\" + argNames.mkString(" ") + " /* lvc=" + localVarCount + " */ ->" + body.toIntendedStringForScope(n + 2, scope)
+        val tmpScope1 = scope.copy(localVarNames = IntMap(), localVarCount = 0)
+        val tmpScope2 = tmpScope1.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "_l" + idx) })
+        val newScope = tmpScope2.withLocalVarNames(argNames)
+        "/* " + closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "") + " (l" + idx + ")" }.mkString(", ") + " */ " +
+        "\\" + argNames.mkString(" ") + " /* lvc=" + localVarCount + " */ -> " + body.toIntendedStringForScope(n + 2, newScope)
       case GlobalVar(idx, _) => 
         scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + " /* g" + idx + " */"
       case TailRecGlobalVar(idx, _) =>
