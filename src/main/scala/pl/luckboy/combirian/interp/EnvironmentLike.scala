@@ -1,6 +1,7 @@
 package pl.luckboy.combirian.interp
 import scala.collection.immutable.IntMap
 
+@cloneable
 trait EnvironmentLike[+This <: EnvironmentLike[This]]
 {
   def repr: This = asInstanceOf[This]
@@ -31,4 +32,10 @@ trait EnvironmentLike[+This <: EnvironmentLike[This]]
   def globalVarValue(idx: Int) = globalVarValues.getOrElse(idx, ErrorValue("undefined global variable", Seq()))
 
   def localVarValue(idx: Int) = if(localDefinedVarCount >= idx) localVarValues(idx) else ErrorValue("undefined local variable", Seq())
+  
+  override def clone: This = {
+    val newEnv = createEnv(localVarValues.length)
+    localVarValues.copyToArray(newEnv.localVarValues)
+    newEnv
+  }
 }
