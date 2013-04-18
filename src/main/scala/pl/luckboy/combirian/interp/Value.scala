@@ -174,9 +174,9 @@ case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends Fun
       val body = combinatorBind.combinator.body
       val localVarCount = combinatorBind.combinator.localVarCount
       env.withClosureAndArgs(Seq(), argValues, localVarCount)(eval.eval(body)) match {
-        case TailRecAppValue(fun, args) =>
-          if(this eq fun) fullApply(args)(eval)(env) else ErrorValue("tail recursion error: this eq fun == false", Seq())
-        case retValue                   =>
+        case retValue @ TailRecAppValue(fun, args) =>
+          if(this eq fun) fullApply(args)(eval)(env) else retValue
+        case retValue                              =>
           retValue
       }
     } else 
@@ -195,9 +195,9 @@ trait LambdaValue extends FunValue
   override final def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value =
     if(argCount == argValues.size)
       env.withClosureAndArgs(Seq(), argValues, lambda.localVarCount)(eval.eval(lambda.body)) match {
-        case TailRecAppValue(fun, args) =>
-          if(this eq fun) fullApply(args)(eval)(env) else ErrorValue("tail recursion error: this eq fun == false", Seq())
-        case retValue                   => 
+        case retValue @ TailRecAppValue(fun, args) =>
+          if(this eq fun) fullApply(args)(eval)(env) else retValue
+        case retValue                              => 
           retValue
       }
     else     
