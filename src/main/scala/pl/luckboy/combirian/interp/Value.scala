@@ -105,6 +105,23 @@ case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = this
 }
 
+// TupleValue
+
+trait TupleValue extends Value
+{
+  def elems: Seq[Value]
+}
+
+case class SharedTupleValue(elems: Seq[SharedValue]) extends TupleValue with SharedValue
+{
+  override def copyAsNonShared = NonSharedTupleValue(elems.map { _.copyAsNonShared })
+}
+
+case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
+{
+  override def shared = SharedTupleValue(elems.map { _.shared })
+}
+
 // ArrayValue
 
 trait ArrayValue extends Value
