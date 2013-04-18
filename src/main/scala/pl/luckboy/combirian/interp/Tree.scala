@@ -72,7 +72,7 @@ trait Term
       case Let(binds, body, _) =>
         val newScope = scope.withLocalVarNames(binds.map { _.name })
         "let " + 
-        binds.zipWithIndex.map { case (bind, i) => bind.toIntendedStringForScope(n + 4, scope) + "/* l" + (i + scope.localVarCount) + " */" }.mkString("\n" + (" " * (n + 4))) +
+        binds.zipWithIndex.map { case (bind, i) => bind.toIntendedStringForScope(n + 4, scope) + " /* l" + (i + scope.localVarCount) + " */" }.mkString("\n" + (" " * (n + 4))) +
         "\n" + (" " * n) + "in  " + body.toIntendedStringForScope(n + 4, newScope)
       case Lambda(closureVarIndexes, argNames, body, localVarCount, _) =>
         val tmpScope = scope.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "_l" + idx) })
@@ -80,13 +80,13 @@ trait Term
         "/* " + closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "") + " (l" + idx + ")" }.mkString(", ") + " */" +
         "\\" + argNames.mkString(" ") + " /* lvc=" + localVarCount + " */ ->" + body.toIntendedStringForScope(n + 2, scope)
       case GlobalVar(idx, _) => 
-        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + "/* g" + idx + " */"
+        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + " /* g" + idx + " */"
       case TailRecGlobalVar(idx, _) =>
-        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + "/* trg" + idx + " */"
+        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + " /* trg" + idx + " */"
       case SharedLocalVar(idx, _) =>
-        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + "/* sl" + idx + " */"
+        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + " /* sl" + idx + " */"
       case NonSharedLocalVar(idx, _) =>
-        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + "/* nsl" + idx + " */"
+        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + " /* nsl" + idx + " */"
       case Literal(value, _) =>
         value.toString
     }
