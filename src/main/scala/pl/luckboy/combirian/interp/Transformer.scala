@@ -202,7 +202,7 @@ object Transformer
             (combBinds + (idx -> CombinatorBind(name, Combinator(args.map { _.name }, body2, localVarCountFromTerm(body)), None)))
           }
         }
-    }.right.map(Tree).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
+    }.right.map(Tree.apply).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
     
   def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[TransformerError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
