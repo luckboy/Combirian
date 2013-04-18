@@ -99,7 +99,7 @@ object Transformer
       case (fun2, args2) => App(fun2, args2, pos)
     }
   
-  private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, combInfo: Option[TailRecInfo])(scope: Scope) = {
+  private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, tailRecInfo: Option[TailRecInfo])(scope: Scope) = {
     val closureVarIdxs = closureVarIdxsFromTerm(body)(scope.localVarIdxs -- args.map { _.name })
     val tmpLocalVarRefCounts1 = scope.localVarRefCounts -- (scope.localVarRefCounts.keySet -- closureVarIdxs.keySet)
     val tmpLocalVarRefCounts2 = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)    
@@ -109,10 +109,10 @@ object Transformer
     val tmpScope = scope.copy(
         localVarIdxs = closureVarNamesAndIndexes.zipWithIndex.map { case ((name, _), newIdx) => (name, newIdx) }.toMap, 
         localVarRefCounts = newLocalVarRefCounts,
-        currentCombinatorInfo = combInfo)
+        currentCombinatorInfo = tailRecInfo)
     val argIdxs = args.zipWithIndex.map { case (arg, i) => (arg.name, i + tmpScope.localVarIdxs.size) }
     val newScope = tmpScope.withLocalVarIdxs(argIdxs)
-    transformTerm(body, combInfo.isDefined)(newScope).right.map { 
+    transformTerm(body, tailRecInfo.isDefined)(newScope).right.map { 
       Lambda(closureVarIndexes, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
     }
   }
