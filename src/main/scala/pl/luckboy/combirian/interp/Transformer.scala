@@ -117,6 +117,14 @@ object Transformer
     }
   }
   
+  def transformTermForCond(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[TransformerError], Term] =
+    term match {
+      case parser.Lambda(args, body) if canTailRec =>
+        lambda(args, body, term.pos, scope.currentTailRecInfo)(scope)
+      case _                                       =>
+        transformTerm(term, canTailRec)(scope)
+    }
+  
   def transformTerm(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[TransformerError], Term] =
     term match {
       case parser.App(fun @ parser.Var(funName), args) if canTailRec =>
@@ -134,9 +142,9 @@ object Transformer
         }.getOrElse(app(fun, args, term.pos)(scope))
       case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(firstTerm, secondTerm, condTerm)) =>
         zipResults(
-            transformTerm(firstTerm, canTailRec)(scope), 
+            transformTermForCond(firstTerm, canTailRec)(scope), 
             zipResults(
-                transformTerm(secondTerm, canTailRec)(scope), 
+                transformTermForCond(secondTerm, canTailRec)(scope), 
                 transformTerm(condTerm, false)(scope))).right.map {
           case (firstTerm2, (secondTerm2, condTerm2)) =>
             App(Literal(BuiltinFunValue(BuiltinFunction.Cond), fun.pos), Seq(firstTerm2, secondTerm2, condTerm2), term.pos)
@@ -187,13 +195,20 @@ object Transformer
     parseTree.defs.foldLeft(Right(IntMap()): Either[Seq[TransformerError], IntMap[CombinatorBind]]) {
       case (res, definition @ parser.Def(name, args, body)) =>
         val argIdxs = args.zipWithIndex.map { case (arg, idx) => (arg.name, idx) }.toMap
-        val tailRecInfo = TailRecInfo(name, args.size)
         val localVarRefCounts = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)
-        val newScope = scope.copy(localVarIdxs = argIdxs, localVarRefCounts = localVarRefCounts, currentTailRecInfo = Some(tailRecInfo))
         val res2 = body match {
           case parser.Lambda(lambdaArgs, lambdaBody) if args.isEmpty =>
+            val tailRecInfo = TailRecInfo(name, lambdaArgs.size)
+            val newScope = scope.copy(
+                localVarIdxs = argIdxs, 
+                localVarRefCounts = localVarRefCounts, 
+                currentTailRecInfo = Some(tailRecInfo))
             lambda(lambdaArgs, lambdaBody, body.pos, Some(tailRecInfo))(newScope)
           case _                                                     =>
+            val newScope = scope.copy(
+                localVarIdxs = argIdxs, 
+                localVarRefCounts = localVarRefCounts, 
+                currentTailRecInfo = Some(TailRecInfo(name, args.size)))
             transformTerm(body, true)(newScope)
         }
         zipResults(res, res2).right.map {
