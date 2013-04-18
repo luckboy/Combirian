@@ -32,14 +32,14 @@ object Transformer
       case Left(errs) => Left(errs.map { _.copy(file = Some(file)) })
     }
   
-  private def closureVarIndexesFromTerm(term: parser.Term)(localVarIdxs: Map[String, Int]): Map[String, Int] =
+  private def closureVarIdxsFromTerm(term: parser.Term)(localVarIdxs: Map[String, Int]): Map[String, Int] =
     term match {
       case parser.App(fun, args)     =>
-        closureVarIndexesFromTerm(fun)(localVarIdxs) ++ args.flatMap { closureVarIndexesFromTerm(_)(localVarIdxs) }
+        closureVarIdxsFromTerm(fun)(localVarIdxs) ++ args.flatMap { closureVarIdxsFromTerm(_)(localVarIdxs) }
       case parser.Let(binds, body)   =>
-        closureVarIndexesFromTerm(body)(localVarIdxs -- binds.map { _.name })
+        closureVarIdxsFromTerm(body)(localVarIdxs -- binds.map { _.name })
       case parser.Lambda(args, body) =>
-        closureVarIndexesFromTerm(body)(localVarIdxs -- args.map { _.name })
+        closureVarIdxsFromTerm(body)(localVarIdxs -- args.map { _.name })
       case parser.Var(name)          =>
         Map() ++ localVarIdxs.get(name).map { (name, _) } 
       case parser.Literal(_)         =>
@@ -84,13 +84,10 @@ object Transformer
   }
   
   private def maxLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
-    counts1.map { case (name, count1) => (name, count1.max(counts2.getOrElse(name, 0))) }
+    counts1.map { case (name, count1) => (name, count1.max(counts2.getOrElse(name, 0))) } ++ (counts2 -- counts1.keys)
 
   private def sumLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
-    counts1.map { case (name, count1) => (name, count1 + counts2.getOrElse(name, 0)) }
-  
-  private def diffLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
-    counts1.map { case (name, count1) => (name, count1 - counts2.getOrElse(name, 0)) }
+    counts1.map { case (name, count1) => (name, count1 + counts2.getOrElse(name, 0)) } ++ (counts2 -- counts1.keys)
   
   def transformTerms(terms: Seq[parser.Term])(scope: Scope): Either[Seq[TransformerError], Seq[Term]] =
     terms.foldLeft(Right(Nil): Either[Seq[TransformerError], Seq[Term]]) {
@@ -103,18 +100,20 @@ object Transformer
     }
   
   private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, combInfo: Option[TailRecInfo])(scope: Scope) = {
-    val closureVarIndexes = closureVarIndexesFromTerm(body)(scope.localVarIdxs)
-    val tmpLocalVarRefCounts1 = scope.localVarRefCounts -- (scope.localVarRefCounts.keySet -- closureVarIndexes.keySet)
+    val closureVarIdxs = closureVarIdxsFromTerm(body)(scope.localVarIdxs -- args.map { _.name })
+    val tmpLocalVarRefCounts1 = scope.localVarRefCounts -- (scope.localVarRefCounts.keySet -- closureVarIdxs.keySet)
     val tmpLocalVarRefCounts2 = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)    
     val newLocalVarRefCounts = sumLocalVarRefCounts(tmpLocalVarRefCounts1, tmpLocalVarRefCounts2)
+    val closureVarNamesAndIndexes = closureVarIdxs.toSeq
+    val closureVarIndexes = closureVarNamesAndIndexes.map { _._2 }
     val tmpScope = scope.copy(
-        localVarIdxs = closureVarIndexes, 
+        localVarIdxs = closureVarNamesAndIndexes.zipWithIndex.map { case ((name, _), newIdx) => (name, newIdx) }.toMap, 
         localVarRefCounts = newLocalVarRefCounts,
         currentCombinatorInfo = combInfo)
     val argIdxs = args.zipWithIndex.map { case (arg, i) => (arg.name, i + tmpScope.localVarIdxs.size) }
     val newScope = tmpScope.withLocalVarIdxs(argIdxs)
     transformTerm(body, combInfo.isDefined)(newScope).right.map { 
-      Lambda(closureVarIndexes.values.toSeq, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
+      Lambda(closureVarIndexes, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
     }
   }
   
@@ -189,7 +188,8 @@ object Transformer
       case (res, definition @ parser.Def(name, args, body)) =>
         val argIdxs = args.zipWithIndex.map { case (arg, idx) => (arg.name, idx) }.toMap
         val combInfo = TailRecInfo(name, args.size)
-        val newScope = scope.copy(localVarIdxs = argIdxs, currentCombinatorInfo = Some(combInfo))
+        val localVarRefCounts = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)
+        val newScope = scope.copy(localVarIdxs = argIdxs, localVarRefCounts = localVarRefCounts, currentCombinatorInfo = Some(combInfo))
         val res2 = body match {
           case parser.Lambda(lambdaArgs, lambdaBody) if args.isEmpty =>
             lambda(lambdaArgs, lambdaBody, body.pos, Some(combInfo))(newScope)
