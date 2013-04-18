@@ -53,19 +53,44 @@ object Transformer
       case _                       => 0
     }
   
-  private def localVarRefCountsFromTerm(term: parser.Term)(localVarRefCounts: Map[String, Int]): Map[String, Int] =
+  private def localVarRefCountsFromTerm(term: parser.Term)(localVarNames: Set[String])(localVarRefCounts: Map[String, Int]): Map[String, Int] =
     term match {
-      case parser.App(fun, args)   => 
-        args.foldLeft(localVarRefCountsFromTerm(fun)(localVarRefCounts)) {
-          (localVarRefCounts2, arg) => localVarRefCountsFromTerm(arg)(localVarRefCounts2)
+      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(firstTerm: parser.Lambda, secondTerm: parser.Lambda, condTerm)) =>
+        val zeros = localVarRefCounts.keySet.map { (_, 0) }.toMap
+        localVarRefCountsFromTerm(condTerm)(localVarNames)(
+            sumLocalVarRefCounts(localVarRefCounts, 
+                maxLocalVarRefCounts(
+                    localVarRefCountsFromTerm(firstTerm)(localVarNames)(zeros),
+                    localVarRefCountsFromTerm(secondTerm)(localVarNames)(zeros)
+                    )))
+      case parser.App(fun, args)     => 
+        args.foldLeft(localVarRefCountsFromTerm(fun)(localVarNames)(localVarRefCounts)) {
+          (localVarRefCounts2, arg) => localVarRefCountsFromTerm(arg)(localVarNames)(localVarRefCounts2)
         }
-      case parser.Let(binds, body) =>
-        localVarRefCountsFromTerm(body)(localVarRefCounts -- binds.map { _.name })
-      case parser.Var(name)        =>
-        localVarRefCounts.get(name).map { count => localVarRefCounts + (name -> (count + 1)) }.getOrElse(localVarRefCounts)
-      case _                       =>
+      case parser.Let(binds, body)   =>
+        val newLocalVarRefCounts = binds.foldLeft(localVarRefCounts) { 
+          (counts, bind) => localVarRefCountsFromTerm(bind.body)(localVarNames)(counts) 
+        }
+        localVarRefCountsFromTerm(body)(localVarNames -- binds.map { _.name })(newLocalVarRefCounts)
+      case parser.Lambda(args, body) =>
+        localVarRefCountsFromTerm(body)(localVarNames -- args.map { _.name })(localVarRefCounts)
+      case parser.Var(name)          =>
+        if(localVarNames.contains(name))
+          localVarRefCounts.get(name).map { count => localVarRefCounts + (name -> (count + 1)) }.getOrElse(localVarRefCounts)
+        else
+          localVarRefCounts
+      case _                         =>
         localVarRefCounts
   }
+  
+  private def maxLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
+    counts1.map { case (name, count1) => (name, count1.max(counts2.getOrElse(name, 0))) }
+
+  private def sumLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
+    counts1.map { case (name, count1) => (name, count1 + counts2.getOrElse(name, 0)) }
+  
+  private def diffLocalVarRefCounts(counts1: Map[String, Int], counts2:  Map[String, Int]): Map[String, Int] =
+    counts1.map { case (name, count1) => (name, count1 - counts2.getOrElse(name, 0)) }
   
   def transformTerms(terms: Seq[parser.Term])(scope: Scope): Either[Seq[TransformerError], Seq[Term]] =
     terms.foldLeft(Right(Nil): Either[Seq[TransformerError], Seq[Term]]) {
@@ -79,7 +104,9 @@ object Transformer
   
   private def lambda(args: Seq[parser.Arg], body: parser.Term, pos: Position, combInfo: Option[TailRecInfo])(scope: Scope) = {
     val closureVarIndexes = closureVarIndexesFromTerm(body)(scope.localVarIdxs)
-    val newLocalVarRefCounts = localVarRefCountsFromTerm(body)((closureVarIndexes.keySet ++ args.map { _.name }).map { (_, 0) }.toMap)
+    val tmpLocalVarRefCounts1 = scope.localVarRefCounts -- (scope.localVarRefCounts.keySet -- closureVarIndexes.keySet)
+    val tmpLocalVarRefCounts2 = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)    
+    val newLocalVarRefCounts = sumLocalVarRefCounts(tmpLocalVarRefCounts1, tmpLocalVarRefCounts2)
     val tmpScope = scope.copy(
         localVarIdxs = closureVarIndexes, 
         localVarRefCounts = newLocalVarRefCounts,
@@ -90,7 +117,6 @@ object Transformer
       Lambda(closureVarIndexes.values.toSeq, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
     }
   }
-
   
   def transformTerm(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[TransformerError], Term] =
     term match {
@@ -107,7 +133,7 @@ object Transformer
             else
               app(fun, args, term.pos)(scope)
         }.getOrElse(app(fun, args, term.pos)(scope))
-      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(firstTerm, secondTerm, condTerm)) if canTailRec =>
+      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(firstTerm, secondTerm, condTerm)) =>
         zipResults(
             transformTerm(firstTerm, canTailRec)(scope), 
             zipResults(
@@ -119,8 +145,12 @@ object Transformer
       case parser.App(fun, args)     =>
         app(fun, args, term.pos)(scope)
       case parser.Let(binds, body)   =>
-        val newLocalIdxs = binds.zipWithIndex.map { case (bind, i) => (bind.name, i + scope.localVarIdxs.size) }
-        val newScope = scope.withLocalVarIdxs(newLocalIdxs)
+        val newLocalVarIdxs = binds.zipWithIndex.map { case (bind, i) => (bind.name, i + scope.localVarIdxs.size) }
+        val tmpScope = scope.withLocalVarIdxs(newLocalVarIdxs)
+        val newLocalVarNames = newLocalVarIdxs.map { _._1 }.toSet
+        val zeros = newLocalVarNames.map { (_, 0) }.toMap
+        val newLocalVarRefCounts = localVarRefCountsFromTerm(body)(newLocalVarNames)(zeros)
+        val newScope = tmpScope.copy(localVarRefCounts = tmpScope.localVarRefCounts ++ newLocalVarRefCounts)
         zipResults(transformTerms(binds.map { _.body })(scope), transformTerm(body, canTailRec)(newScope)).right.map {
           case (bindTerms2, body2) => Let(binds.map { _.name }.zip(bindTerms2).map(Bind.tupled), body2, term.pos)
         }
