@@ -58,7 +58,7 @@ trait Term
         (Seq(fun) ++ args).map {
           term =>
             term match {
-              case _: GlobalVar | _: TailRecGlobalVar | _: SharedLocalVar | _: NonSharedLocalVar => 
+              case _: GlobalVar | _: TailRecGlobalVar | _: SharedLocalVar | _: NonSharedLocalVar | _: Literal => 
                 term.toIntendedStringForScope(n + 2, scope)
               case _ =>
                 "(" + term.toIntendedStringForScope(n + 2, scope) + ")"
