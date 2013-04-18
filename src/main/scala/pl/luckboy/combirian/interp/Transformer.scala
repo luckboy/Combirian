@@ -218,4 +218,6 @@ object Transformer
         }._1
     }
   }
+  
+  def tranform(s: String) = transform(Map(), Some(parser.Parser.parse(s).get))(Tree(IntMap()))
 }
