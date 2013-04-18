@@ -219,5 +219,5 @@ object Transformer
     }
   }
   
-  def tranform(s: String) = transform(Map(), Some(parser.Parser.parse(s).get))(Tree(IntMap()))
+  def transform(s: String): Either[Seq[TransformerError], Tree] = transform(Map(), Some(parser.Parser.parse(s).get))(Tree(IntMap()))
 }
