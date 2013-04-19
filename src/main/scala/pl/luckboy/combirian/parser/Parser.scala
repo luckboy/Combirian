@@ -160,5 +160,10 @@ object Parser extends StandardTokenParsers with PackratParsers
       case None         => ParseTree(Nil)
     })
     
-  def parse(s: String) = phrase(parseTree)(new lexical.Scanner(s))
+  def parse(s: String) = 
+    phrase(parseTree)(new lexical.Scanner(s)) match {
+      case Success(res, _)    => Right(res)
+      case Failure(msg, next) => Left(Seq(ParserError(None, next.pos, msg)))
+      case Error(msg, next)   => Left(Seq(ParserError(None, next.pos, "fatal: " + msg)))
+    }
 }

@@ -2,6 +2,7 @@ package pl.luckboy.combirian.interp
 import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import pl.luckboy.combirian.parser
+import pl.luckboy.combirian.AbstractError
 
 object Transformer
 {
@@ -234,5 +235,9 @@ object Transformer
     }
   }
   
-  def transform(s: String): Either[Seq[TransformerError], Tree] = transform(Map(), Some(parser.Parser.parse(s).get))(Tree(IntMap()))
+  def transform(s: String): Either[Seq[AbstractError], Tree] = 
+    for {
+      parseTree <- parser.Parser.parse(s).right
+      tree <- transform(Map(), Some(parseTree))(Tree(IntMap())).right
+    } yield tree
 }
