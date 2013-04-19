@@ -8,16 +8,20 @@ case class Tree(combinatorBinds: IntMap[CombinatorBind])
   
   def forFile(file: java.io.File) = Tree(IntMap() ++ combinatorBinds.mapValues { _.copy(file = Some(file)) })  
   
-  override def toString = {
+  override def toString = toString(true)
+  
+  def toString(canShowNames: Boolean) = {
     val scope = Tree.StringScope(
         globalVarNames = IntMap() ++ combinatorBinds.map { case (idx, CombinatorBind(name, _, _)) => (idx, name) },
         localVarNames = IntMap(),
         localVarCount = 0)
-    combinatorBinds.values.groupBy { _.file }.map {
+    combinatorBinds.groupBy { _._2.file }.map {
       case (file, combBinds) =>
-        "/* " + file.map { _.getPath }.getOrElse("--") + " */\n" +
-        combBinds.map { _.toIntendedStringForScope(0, scope) }.mkString("\n")
-    }.mkString("\n")
+        "// " + file.map { _.getPath }.getOrElse("--") + "\n" +
+        combBinds.map { 
+          case (idx, combBind) =>
+            combBind.toIntendedStringForScope(0, scope, canShowNames) + " //<g" + idx + ">" }.mkString("\n\n")
+        }.mkString("\n")
   }
 }
 
@@ -29,22 +33,26 @@ object Tree
       copy(
           localVarNames = localVarNames ++ names.zipWithIndex.map { case (name, i) => (i + localVarCount, name) }, 
           localVarCount = localVarCount + names.size)          
+          
+    def withLocalVars(n: Int) = copy(localVarCount = localVarCount + n)
   }
 }
 
 case class CombinatorBind(name: String, combinator: Combinator, file: Option[java.io.File])
 {
-  def toIntendedStringForScope(n: Int, scope: Tree.StringScope) =
-    combinator.toIntendedStringForNameWithScope(n, name, scope)
+  def toIntendedStringForScope(n: Int, scope: Tree.StringScope, canShowNames: Boolean) =
+    combinator.toIntendedStringForNameWithScope(n, name, scope, canShowNames)
 }
 
 case class Combinator(argNames: Seq[String], body: Term, localVarCount: Int)
 {
   val argCount = argNames.size
   
-  def toIntendedStringForNameWithScope(n: Int, name: String, scope: Tree.StringScope) = {
-    val newScope = scope.withLocalVarNames(argNames)
-    name + " " + argNames.mkString(" ") + " /* lvc=" + localVarCount + " */ = " + body.toIntendedStringForScope(n + 2, newScope)
+  def toIntendedStringForNameWithScope(n: Int, name: String, scope: Tree.StringScope, canShowNames: Boolean) = {
+    val newScope = if(canShowNames) scope.withLocalVarNames(argNames) else scope.withLocalVars(argNames.size)
+    name + " " + argNames.mkString(" ") + 
+    (if(localVarCount != 0) " /*lvc=" + localVarCount + "*/ = " else " = ") +
+    body.toIntendedStringForScope(n + 2, newScope, canShowNames) 
   }
 }
 
@@ -52,37 +60,61 @@ trait Term
 {
   def pos: Position
   
-  def toIntendedStringForScope(n: Int, scope: Tree.StringScope): String =
+  private def globalVarName(idx: Int, scope: Tree.StringScope, canShowNames: Boolean) =
+    if(canShowNames)
+      scope.globalVarNames.getOrElse(idx, "<g" + idx + ">")
+    else
+      "<g" + idx + ">"
+  
+  private def localVarName(idx: Int, scope: Tree.StringScope, canShowNames: Boolean) =
+    if(canShowNames)
+      scope.localVarNames.getOrElse(idx, "<l" + idx + ">")
+    else
+      "<l" + idx + ">"
+  
+  def toIntendedStringForScope(n: Int, scope: Tree.StringScope, canShowNames: Boolean): String =
     this match {
       case App(fun, args, _) =>
         (Seq(fun) ++ args).map {
           term =>
             term match {
               case _: GlobalVar | _: TailRecGlobalVar | _: SharedLocalVar | _: NonSharedLocalVar | _: Literal => 
-                term.toIntendedStringForScope(n + 2, scope)
+                term.toIntendedStringForScope(n + 2, scope, canShowNames)
               case _ =>
-                "(" + term.toIntendedStringForScope(n + 2, scope) + ")"
+                "(" + term.toIntendedStringForScope(n + 2, scope, canShowNames) + ")"
             }
         }.mkString(" ")
       case Let(binds, body, _) =>
         val newScope = scope.withLocalVarNames(binds.map { _.name })
-        "let " + 
-        binds.zipWithIndex.map { case (bind, i) => bind.toIntendedStringForScope(n + 4, scope) + " /* l" + (i + scope.localVarCount) + " */" }.mkString("\n" + (" " * (n + 4))) +
-        "\n" + (" " * n) + "in  " + body.toIntendedStringForScope(n + 4, newScope)
+        "let\n" + (" " * (n + 2)) +
+        binds.zipWithIndex.map { 
+          case (bind, i) => 
+            bind.toIntendedStringForScope(n + 2, scope, canShowNames) + " //<l" + (i + scope.localVarCount) + ">"
+        }.mkString("\n" + (" " * (n + 2))) +
+        "\n" + (" " * n) + "in\n" + (" " * (n + 2)) + body.toIntendedStringForScope(n + 2, newScope, canShowNames)
       case Lambda(closureVarIndexes, argNames, body, localVarCount, _) =>
         val tmpScope1 = scope.copy(localVarNames = IntMap(), localVarCount = 0)
-        val tmpScope2 = tmpScope1.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "_l" + idx) })
+        val tmpScope2 = tmpScope1.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "l" + idx) })
         val newScope = tmpScope2.withLocalVarNames(argNames)
-        "/* " + closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "") + " (l" + idx + ")" }.mkString(", ") + " */ " +
-        "\\" + argNames.mkString(" ") + " /* lvc=" + localVarCount + " */ -> " + body.toIntendedStringForScope(n + 2, newScope)
+        ({
+          if(!closureVarIndexes.isEmpty)
+            "/*" + closureVarIndexes.zipWithIndex.map { 
+              case (idx, newIdx) => localVarName(newIdx, scope, canShowNames) + "=<l" + idx  + ">"
+            }.mkString(",") + "*/ "
+          else
+            ""
+        }) + 
+        "\\" + argNames.mkString(" ") + 
+        (if(localVarCount != 0) " /*lvc=" + localVarCount + "*/ -> "  else " -> ") + 
+        body.toIntendedStringForScope(n + 2, newScope, canShowNames)
       case GlobalVar(idx, _) => 
-        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + " /* g" + idx + " */"
+        globalVarName(idx, scope, canShowNames)
       case TailRecGlobalVar(idx, _) =>
-        scope.globalVarNames.getOrElse(idx, "(_g" + idx + ")") + " /* trg" + idx + " */"
+        globalVarName(idx, scope, canShowNames) + "/*t*/"
       case SharedLocalVar(idx, _) =>
-        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + " /* sl" + idx + " */"
+        localVarName(idx, scope, canShowNames)
       case NonSharedLocalVar(idx, _) =>
-        scope.localVarNames.getOrElse(idx, "(_l" + idx + ")") + " /* nsl" + idx + " */"
+        localVarName(idx, scope, canShowNames) + "/*n*/"
       case Literal(value, _) =>
         value.toString
     }
@@ -106,6 +138,6 @@ case class Literal(value: LiteralValue, pos: Position) extends Term
 
 case class Bind(name: String, body: Term)
 {
-  def toIntendedStringForScope(n: Int, scope: Tree.StringScope): String =
-    name + " = " + body.toIntendedStringForScope(n + 2, scope)
+  def toIntendedStringForScope(n: Int, scope: Tree.StringScope, canShowNames: Boolean): String =
+    name + " = " + body.toIntendedStringForScope(n + 2, scope, canShowNames: Boolean)
 }
