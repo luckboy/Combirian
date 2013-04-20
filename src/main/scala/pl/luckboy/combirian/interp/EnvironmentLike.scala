@@ -33,6 +33,10 @@ trait EnvironmentLike[+This <: EnvironmentLike[This]]
 
   def localVarValue(idx: Int) = if(localDefinedVarCount >= idx) localVarValues(idx) else ErrorValue("undefined local variable", Seq())
   
+  def withGlobalVars(values: Map[Int, Value]): This
+  
+  def globalVarIdxs = globalVarValues.keySet
+  
   override def clone: This = {
     val newEnv = createEnv(localVarValues.length)
     localVarValues.copyToArray(newEnv.localVarValues)

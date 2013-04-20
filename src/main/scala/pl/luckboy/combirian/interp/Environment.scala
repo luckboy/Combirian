@@ -7,4 +7,6 @@ case class Environment(globalVarValues: IntMap[Value], localVarValues: Array[Val
     val newLocalVarValues = Array.fill(maxLocalVarCount)(ErrorValue("undefined local variable", Seq()): Value)
     Environment(globalVarValues, newLocalVarValues)
   }
+  
+  override def withGlobalVars(values: Map[Int, Value]) = Environment(globalVarValues ++ values, localVarValues)
 }
