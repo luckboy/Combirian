@@ -1,6 +1,7 @@
 package pl.luckboy.combirian.interp
 import scala.collection.mutable
 import scala.util.parsing.input.Position
+import scala.util.parsing.input.NoPosition
 import scala.annotation.tailrec
 
 // Value
@@ -82,25 +83,22 @@ object LazyValue
   def unapply(value: LazyValue) = Some(value.force)
 }
 
-case class ErrorValue(message: String, stackTraceParts: Seq[ErrorStackTracePart]) extends SharedValue
+case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) extends SharedValue
 {
   override def isError = true
     
-  private def lastStackTracePartAndOther =
-    stackTraceParts.lastOption.map { (_, stackTraceParts.init) }.getOrElse((ErrorStackTracePart(None, None, Seq()), Seq()))
+  private def lastStackTraceElemAndOthers =
+    stackTrace.lastOption.map { (_, stackTrace.init) }.getOrElse((ErrorStackTraceElement(None, None, NoPosition), Seq()))
   
   override def withPos(pos: Position) = {
-    val (lastPart, otherParts) = lastStackTracePartAndOther
-    ErrorValue(message, otherParts :+ lastPart.copy(poses = lastPart.poses :+ pos))
+    val (last, others) = lastStackTraceElemAndOthers
+    if(last.pos == NoPosition) ErrorValue(message, others :+ last.copy(pos = pos)) else this
   }
     
   override def withFileAndName(file: Option[java.io.File], name: Option[String]) = {
-    val (lastPart, otherParts) = lastStackTracePartAndOther
-    ErrorValue(message, (otherParts :+ lastPart.copy(file = file, name = name)) :+ ErrorStackTracePart(None, None, Seq()))
+    val (last, others) = lastStackTraceElemAndOthers
+    ErrorValue(message, others :+ last.copy(file = file, name = name))
   }
-  
-  def stackTrace: Seq[ErrorStackTraceElement] =
-    stackTraceParts.flatMap { part => part.poses.map { pos => ErrorStackTraceElement(part.file, part.name, pos) } }
   
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = this
 }
