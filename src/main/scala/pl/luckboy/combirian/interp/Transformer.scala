@@ -193,6 +193,14 @@ object Transformer
       })
   }.left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
   
+  def scopeFromTree(tree: Tree) = 
+    Scope(
+        globalVarIdxs = tree.combinatorBinds.map { case (idx, combBind) => (combBind.name, idx) },
+        localVarIdxs = Map(),
+        localVarRefCounts = Map(),
+        currentTailRecInfo = None,
+        currentCombinatorIdx =None)
+  
   def transformParseTree(parseTree: parser.ParseTree)(scope: Scope): Either[Seq[TransformerError], Tree] =
     parseTree.defs.foldLeft(Right(IntMap()): Either[Seq[TransformerError], IntMap[CombinatorBind]]) {
       case (res, definition @ parser.Def(name, args, body)) =>
@@ -226,7 +234,7 @@ object Transformer
     
   def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[TransformerError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
-    allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None, None)): Either[Seq[TransformerError], Scope]) {
+    allParseTrees.foldLeft(Right(scopeFromTree(tree)): Either[Seq[TransformerError], Scope]) {
       case (Right(scope), (file, parseTree)) => scopeFromParseTree(parseTree)(scope)
       case (Left(errs), _)                   => Left(errs)
     }.right.flatMap {
