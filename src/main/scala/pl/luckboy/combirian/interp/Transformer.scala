@@ -10,7 +10,8 @@ object Transformer
       globalVarIdxs: Map[String, Int],
       localVarIdxs: Map[String, Int], 
       localVarRefCounts: Map[String, Int],
-      currentTailRecInfo: Option[TailRecInfo])
+      currentTailRecInfo: Option[TailRecInfo],
+      currentCombinatorIdx: Option[Int])
   {
     def withLocalVarIdxs(idxs: Iterable[(String, Int)]) = copy(localVarIdxs = localVarIdxs ++ idxs)
 
@@ -114,7 +115,7 @@ object Transformer
     val argIdxs = args.zipWithIndex.map { case (arg, i) => (arg.name, i + tmpScope.localVarIdxs.size) }
     val newScope = tmpScope.withLocalVarIdxs(argIdxs)
     transformTerm(body, tailRecInfo.isDefined)(newScope).right.map { 
-      Lambda(closureVarIndexes, args.map { _.name }, _, localVarCountFromTerm(body), pos) 
+      Lambda(closureVarIndexes, args.map { _.name }, _, localVarCountFromTerm(body), scope.currentCombinatorIdx.get, pos) 
     }
   }
   
@@ -197,24 +198,27 @@ object Transformer
       case (res, definition @ parser.Def(name, args, body)) =>
         val argIdxs = args.zipWithIndex.map { case (arg, idx) => (arg.name, idx) }.toMap
         val localVarRefCounts = localVarRefCountsFromTerm(body)(args.map { _.name }.toSet)(args.map { arg => (arg.name, 0) }.toMap)
+        val idx = scope.globalVarIdxs(name)
         val res2 = body match {
           case parser.Lambda(lambdaArgs, lambdaBody) if args.isEmpty =>
             val tailRecInfo = TailRecInfo(name, lambdaArgs.size)
             val newScope = scope.copy(
                 localVarIdxs = argIdxs, 
                 localVarRefCounts = localVarRefCounts, 
-                currentTailRecInfo = Some(tailRecInfo))
+                currentTailRecInfo = Some(tailRecInfo),
+                currentCombinatorIdx = Some(idx))
             lambda(lambdaArgs, lambdaBody, body.pos, Some(tailRecInfo))(newScope)
           case _                                                     =>
             val newScope = scope.copy(
                 localVarIdxs = argIdxs, 
                 localVarRefCounts = localVarRefCounts, 
-                currentTailRecInfo = Some(TailRecInfo(name, args.size)))
+                currentTailRecInfo = Some(TailRecInfo(name, args.size)),
+                currentCombinatorIdx = Some(idx))
             transformTerm(body, true)(newScope)
         }
         zipResults(res, res2).right.map {
           case (combBinds, body2)=> {
-            val idx = scope.globalVarIdxs(name)
+            
             (combBinds + (idx -> CombinatorBind(name, Combinator(args.map { _.name }, body2, localVarCountFromTerm(body)), None)))
           }
         }
@@ -222,7 +226,7 @@ object Transformer
     
   def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[TransformerError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
-    allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None)): Either[Seq[TransformerError], Scope]) {
+    allParseTrees.foldLeft(Right(Scope(Map(), Map(), Map(), None, None)): Either[Seq[TransformerError], Scope]) {
       case (Right(scope), (file, parseTree)) => scopeFromParseTree(parseTree)(scope)
       case (Left(errs), _)                   => Left(errs)
     }.right.flatMap {

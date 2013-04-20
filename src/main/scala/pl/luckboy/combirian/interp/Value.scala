@@ -177,7 +177,7 @@ case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends Fun
         case retValue @ TailRecAppValue(fun, args) =>
           if(this eq fun) fullApply(args)(eval)(env) else retValue
         case retValue                              =>
-          retValue
+          retValue.withFileAndName(combinatorBind.file, Some(combinatorBind.name))
       }
     } else 
       ErrorValue("incorrect number of arguments", Seq())
@@ -197,10 +197,13 @@ trait LambdaValue extends FunValue
       env.withClosureAndArgs(Seq(), argValues, lambda.localVarCount)(eval.eval(lambda.body)) match {
         case retValue @ TailRecAppValue(fun, args) =>
           if(this eq fun) fullApply(args)(eval)(env) else retValue
-        case retValue                              => 
-          retValue
+        case retValue                              =>
+          env.globalVarValue(lambda.combinatorIdx) match {
+            case CombinatorValue(_, combBind) => retValue.withFileAndName(combBind.file, Some(combBind.name))
+            case _                            => ErrorValue("lambda expression isn't defined at combinator", Seq())
+          }
       }
-    else     
+    else
       ErrorValue("incorrect number of arguments", Seq())
 }
 

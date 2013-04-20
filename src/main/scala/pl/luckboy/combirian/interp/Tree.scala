@@ -92,7 +92,7 @@ trait Term
             bind.toIntendedStringForScope(n + 2, scope, canShowNames) + " //<l" + (i + scope.localVarCount) + ">"
         }.mkString("\n" + (" " * (n + 2))) +
         "\n" + (" " * n) + "in\n" + (" " * (n + 2)) + body.toIntendedStringForScope(n + 2, newScope, canShowNames)
-      case Lambda(closureVarIndexes, argNames, body, localVarCount, _) =>
+      case Lambda(closureVarIndexes, argNames, body, localVarCount, _, _) =>
         val tmpScope1 = scope.copy(localVarNames = IntMap(), localVarCount = 0)
         val tmpScope2 = tmpScope1.withLocalVarNames(closureVarIndexes.map { idx => scope.localVarNames.getOrElse(idx, "l" + idx) })
         val newScope = tmpScope2.withLocalVarNames(argNames)
@@ -126,7 +126,7 @@ case class Let(binds: Seq[Bind], body: Term, pos: Position) extends Term
 {
   val bindTerms = binds.map { _.body }
 }
-case class Lambda(closureVarIndexes: Seq[Int], argNames: Seq[String], body: Term, localVarCount: Int, pos: Position) extends Term
+case class Lambda(closureVarIndexes: Seq[Int], argNames: Seq[String], body: Term, localVarCount: Int, combinatorIdx: Int, pos: Position) extends Term
 {
   val argCount = argNames.size
 }

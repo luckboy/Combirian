@@ -44,17 +44,17 @@ object Initializer
   
   private def usedGlobalVarIdxsFromTerm(term: Term): BitSet =
     term match {
-      case App(fun, args, _)        => 
+      case App(fun, args, _)           => 
         usedGlobalVarIdxsFromTerm(fun) ++ args.flatMap(usedGlobalVarIdxsFromTerm)
-      case Let(binds, body, _)      => 
+      case Let(binds, body, _)         => 
         BitSet() | binds.flatMap { bind => usedGlobalVarIdxsFromTerm(bind.body) }.toSet | usedGlobalVarIdxsFromTerm(body)
-      case Lambda(_, _, body, _, _) =>
+      case Lambda(_, _, body, _, _, _) =>
         usedGlobalVarIdxsFromTerm(body)
-      case GlobalVar(idx, _)        =>
+      case GlobalVar(idx, _)           =>
         BitSet(idx)
-      case TailRecGlobalVar(idx, _) =>
+      case TailRecGlobalVar(idx, _)    =>
         BitSet(idx)
-      case _                        =>
+      case _                           =>
         BitSet()
     }
  
