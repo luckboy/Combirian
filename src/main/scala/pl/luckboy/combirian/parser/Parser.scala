@@ -12,8 +12,7 @@ import pl.luckboy.combirian.interp.FloatValue
 import pl.luckboy.combirian.interp.StringValue
 import pl.luckboy.combirian.interp.BuiltinFunValue
 import pl.luckboy.combirian.interp.TupleFunValue
-import pl.luckboy.combirian.interp.CurryFunValue
-import pl.luckboy.combirian.interp.UncurryFunValue
+import pl.luckboy.combirian.interp.ExtractFunValue
 import pl.luckboy.combirian.interp.BuiltinFunction
 
 object Parser extends StandardTokenParsers with PackratParsers
@@ -120,8 +119,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   }
   lazy val builtinFunVal3 = (
       "tuple" ~-> integer											^^ TupleFunValue
-      | "curry" ~-> integer											^^ CurryFunValue
-      | "uncurry" ~-> integer										^^ UncurryFunValue
+      | "extract" ~-> integer										^^ ExtractFunValue
       )
   lazy val builtinFunVal = builtinFunVal1 | builtinFunVal2 | builtinFunVal3
   lazy val value = trueVal | falseVal | nilVal | charVal | intVal | floatVal | strVal | builtinFunVal 

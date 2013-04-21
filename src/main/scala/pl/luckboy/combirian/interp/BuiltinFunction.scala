@@ -27,7 +27,8 @@ object BuiltinFunction extends Enumeration
   val Hash = Value("hash")
   val Size = Value("size")
   val Haskey = Value("haskey")
-  val Kes = Value("keys")
+  val Keys = Value("keys")
+  val Keyarray = Value("keyarray")
   val Nth = Value("nth")
   val Updated = Value("updated")
   val Istypeof = Value("istypeof")
@@ -39,6 +40,7 @@ object BuiltinFunction extends Enumeration
   val Hashfrom = Value("hashfrom")
   val Size2 = Value("size2")
   val Haskey2 = Value("haskey2")
-  val Kes2 = Value("keys2")
+  val Keys2 = Value("keys2")
+  val Keyarray2 = Value("keyarray2")
   val Nth2 = Value("nth2")
 }

@@ -317,5 +317,4 @@ case class StringValue(x: String) extends LiteralValue
 trait LiteralFunValue extends LiteralValue with FunValue
 case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralValue
 case class TupleFunValue(n: Int) extends LiteralValue
-case class CurryFunValue(n: Int) extends LiteralValue
-case class UncurryFunValue(n: Int) extends LiteralValue
+case class ExtractFunValue(n: Int) extends LiteralValue

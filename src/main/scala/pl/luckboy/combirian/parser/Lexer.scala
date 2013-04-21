@@ -5,7 +5,7 @@ import scala.util.parsing.input.CharArrayReader.EofCh
 case class Lexer() extends StdLexical
 {
   delimiters ++= List(
-      "\\", "->", "=", "(", ")", ";", "\n",
+      "\\", "->", "=", "(", ")", ",", ";", "\n",
       "#",
       "+", "-", "*", "/", "%",
       "&", "|", "^", 
@@ -15,11 +15,11 @@ case class Lexer() extends StdLexical
   reserved ++= List(
 	  "let", "in",
       "true", "false", "nil",
-      "if", "else", "cond", "tuple", "curry", "uncurry",
+      "if", "else", "tuple", "extract", "cond",
       "vector", "map", "array", "hash",
-      "size", "haskey", "keys", "nth", "updated",
+      "size", "haskey", "keys", "keyarray", "nth", "updated",
       "istypeof", "intfrom", "floatfrom", "vectorfrom", "mapfrom", "arrayfrom", "hashfrom",
-      "size2", "haskey2", "keys2", "nth2")
+      "size2", "haskey2", "keys2", "keyarray2", "nth2")
   
   case class CharLit(chars: String) extends Token
   case class IntLit(chars: String) extends Token
