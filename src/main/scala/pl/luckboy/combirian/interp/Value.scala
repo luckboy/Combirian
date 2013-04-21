@@ -111,12 +111,17 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
   override def toString = "<error: " + message + ">"
 }
 
-// TupleValue
+// AbstractSeqValue
 
-trait TupleValue extends Value
+trait AbstractSeqValue extends Value
 {
   def elems: Seq[Value]
-  
+}
+
+// TupleValue
+
+trait TupleValue extends AbstractSeqValue
+{
   override def toString = "(" + elems.mkString(", ") + ")"
 }
 
@@ -130,13 +135,20 @@ case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
   override def shared = SharedTupleValue(elems.map { _.shared })
 }
 
+// VectorValue
+
+case class VectorValue(elems: Seq[SharedValue]) extends AbstractSeqValue with SharedValue
+{
+  override def toString = "[" + elems.mkString(", ") + "]"
+}
+
 // ArrayValue
 
-trait ArrayValue extends Value
+trait ArrayValue extends AbstractSeqValue
 {
-  def elems: Seq[SharedValue]
-  
-  override def toString = "[" + elems.mkString(", ") + "]"
+  override def elems: Seq[SharedValue]
+
+  override def toString = "#[" + elems.mkString(", ") + "]"
 }
 
 case class SharedArrayValue(elems: Seq[SharedValue]) extends ArrayValue with SharedValue
@@ -151,13 +163,27 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
   override def shared = SharedArrayValue(elems)
 }
 
-// HashValue
+// AbstractMapValue
 
-trait HashValue extends Value
+trait AbstractMapValue extends Value
 {
   def elems: Map[SharedValue, SharedValue]
-  
+}
+
+// MapValue
+
+case class MapValue(elems: Map[SharedValue, SharedValue]) extends AbstractMapValue with SharedValue
+{
   override def toString = "{" + elems.map { case (key, value) => "(" + key + ", " + value + ")" }.mkString(", ") + "}"
+}
+
+// HashValue
+
+trait HashValue extends AbstractMapValue
+{
+  override def elems: Map[SharedValue, SharedValue]
+
+  override def toString = "#{" + elems.map { case (key, value) => "(" + key + ", " + value + ")" }.mkString(", ") + "}"
 }
 
 case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
@@ -167,7 +193,7 @@ case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashVal
 
 case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]) extends HashValue
 {
-  def elems = hashMap.toMap
+  override def elems = hashMap.toMap
 
   override def shared = SharedHashValue(elems)
 }
@@ -287,4 +313,9 @@ case class CharValue(x: Char) extends LiteralValue
 case class IntValue(x: Long) extends LiteralValue
 case class FloatValue(x: Double) extends LiteralValue
 case class StringValue(x: String) extends LiteralValue
+
+trait LiteralFunValue extends LiteralValue with FunValue
 case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralValue
+case class TupleFunValue(n: Int) extends LiteralValue
+case class CurryFunValue(n: Int) extends LiteralValue
+case class UncurryFunValue(n: Int) extends LiteralValue

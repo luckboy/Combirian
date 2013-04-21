@@ -11,6 +11,9 @@ import pl.luckboy.combirian.interp.IntValue
 import pl.luckboy.combirian.interp.FloatValue
 import pl.luckboy.combirian.interp.StringValue
 import pl.luckboy.combirian.interp.BuiltinFunValue
+import pl.luckboy.combirian.interp.TupleFunValue
+import pl.luckboy.combirian.interp.CurryFunValue
+import pl.luckboy.combirian.interp.UncurryFunValue
 import pl.luckboy.combirian.interp.BuiltinFunction
 
 object Parser extends StandardTokenParsers with PackratParsers
@@ -77,6 +80,16 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val binds = bind ~ ((semi ~> bind) *)						^^ { case b ~ bs => b :: bs }
   
   lazy val arg = p(ident 											^^ Arg)
+
+  lazy val integer = elem("", _.isInstanceOf[lexical.IntLit])		^^ {
+    e => 
+      if(e.chars.startsWith("0x") || e.chars.startsWith("0X"))
+        Integer.parseInt(e.chars.substring(2), 16)
+      else if(e.chars.startsWith("0"))
+        Integer.parseInt(e.chars.substring(1), 8)
+      else
+        Integer.parseInt(e.chars, 10)
+  }
   
   lazy val trueVal = "true" ^^^ TrueValue
   lazy val falseVal = "false" ^^^ FalseValue
@@ -94,7 +107,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toDouble) }
   lazy val strVal = stringLit										^^ StringValue
   lazy val builtinFunVal1 = (
-      "-" | "~" | "cond" | "tuple" | "array" | "hash" | "size" | "haskey" | "keys" | "nth" | "updated" | "istypeof" |
+      "-" | "~" | "cond" | "array" | "hash" | "size" | "haskey" | "keys" | "nth" | "updated" | "istypeof" |
       "intfrom" | "floatfrom") ^^ {
     s => BuiltinFunValue(BuiltinFunction.withName(s))
   }
@@ -105,7 +118,12 @@ object Parser extends StandardTokenParsers with PackratParsers
       "==" | "!=" | "<" | "<=" | ">" | ">=")) ^^ { 
     s => BuiltinFunValue(BuiltinFunction.withName("#" + s))
   }
-  lazy val builtinFunVal = builtinFunVal1 | builtinFunVal2
+  lazy val builtinFunVal3 = (
+      "tuple" ~-> integer											^^ TupleFunValue
+      | "curry" ~-> integer											^^ CurryFunValue
+      | "uncurry" ~-> integer										^^ UncurryFunValue
+      )
+  lazy val builtinFunVal = builtinFunVal1 | builtinFunVal2 | builtinFunVal3
   lazy val value = trueVal | falseVal | nilVal | charVal | intVal | floatVal | strVal | builtinFunVal 
   
   case class BinOp(s: String) extends Positional
@@ -116,9 +134,15 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val binOp4 = p(("+" | "-")									^^ BinOp)
   lazy val binOp5 = p(("*" | "/" | "%")								^^ BinOp)
  
-  case class IfOp() extends Positional
+  case class Positioned() extends Positional
   
-  lazy val ifOp = p("if"											^^^ IfOp())
+  lazy val ifOp = p("if"											^^^ Positioned())
+
+  lazy val leftParen = p("("										^^^ Positioned())
+  lazy val leftBracket = p("["										^^^ Positioned())
+  lazy val leftBrace = p("{"										^^^ Positioned())
+  lazy val hashLeftBracket = p("#" ~ "["							^^^ Positioned())
+  lazy val hashLeftBrace = p("#" ~ "{"								^^^ Positioned())
   
   case class Parsers()(implicit nlMode: NlMode.Value)
   {
@@ -130,8 +154,8 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val expr5: PackratParser[Term] = p((expr5 | exprN) ~~ binOp5 ~- exprN ^^ mkBinOp) | exprN
     
     lazy val exprN: PackratParser[Term] = app | let | lambda | ifElse | simpleExpr
-    lazy val simpleExpr = variable | literal | ("(" ~-> nlParsers.expr <~- ")")
-  
+    lazy val simpleExpr = variable | literal | unit | tuple | array | hash | ("(" ~-> nlParsers.expr <~- ")")
+    
     lazy val app = p(simpleExpr ~~ (simpleExpr ~+)					^^ { case t ~ ts => App(t, ts) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)				^^ { case bs ~ t => Let(bs, t) })
     lazy val lambda = p("\\" ~> (arg +) ~ ("->" ~-> expr)			^^ { case as ~ t => Lambda(as, t) })
@@ -142,12 +166,32 @@ object Parser extends StandardTokenParsers with PackratParsers
     })
     lazy val variable = p(ident										^^ Var)
     lazy val literal = p(value										^^ Literal)
+
+    lazy val unit = "(" ~- ")"										^^^ Literal(TupleFunValue(0))
+    lazy val tuple = leftParen ~- nlParsers.expr ~- (("," ~-> nlParsers.expr) -+) <~- ")" ^^ {
+      case lp ~ t ~ ts => App(Literal(TupleFunValue(ts.size + 1)).setPos(lp.pos), t :: ts)
+    }
+    lazy val vector = leftBracket ~- ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ mkColl(BuiltinFunction.Vectorfrom)
+    lazy val map = leftBrace ~- ((nlParsers.pair ~- (("," ~-> nlParsers.pair) -*)) ?) <~- "}" ^^ mkColl(BuiltinFunction.Mapfrom)
+    lazy val array = hashLeftBracket ~- ((nlParsers.expr ~- (("," ~-> nlParsers.expr) -*)) ?) <~- "]" ^^ mkColl(BuiltinFunction.Arrayfrom)
+    lazy val hash = hashLeftBrace ~- ((nlParsers.pair ~- (("," ~-> nlParsers.pair) -*)) ?) <~- "}" ^^ mkColl(BuiltinFunction.Hashfrom)
+    lazy val pair = leftParen ~- nlParsers.expr ~- ("," ~-> nlParsers.expr) <~- ")" ^^ {
+      case lp ~ t1 ~ t2 => App(Literal(TupleFunValue(2)).setPos(lp.pos), List(t1, t2))
+    }
   }
   
   def mkBinOp(x: Term ~ BinOp ~ Term) =
     x match { 
       case t1 ~ (bo @ BinOp(s)) ~ t2 =>
         App(Literal(BuiltinFunValue(BuiltinFunction.withName("#" + s))).setPos(bo.pos), List(t1, t2))
+    }
+  
+  def mkColl(fun: BuiltinFunction.Value)(x: Positioned ~ Option[Term ~ List[Term]]) =
+    x match {
+      case p ~ optTs => 
+        val ts = optTs.map { case t2 ~ ts2 => t2 :: ts2 }.getOrElse(Nil)
+        App(Literal(BuiltinFunValue(fun)).setPos(p.pos),
+            List(App(Literal(TupleFunValue(ts.size)).setPos(p.pos), ts).setPos(p.pos)))
     }
   
   val nlParsers = Parsers()(NlMode.Nl)  
