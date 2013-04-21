@@ -21,6 +21,7 @@ object BuiltinFunction extends Enumeration
   val Gt = Value("#>")
   val Ge = Value("#>=")
   val Cond = Value("cond")
+  val Uncurry = Value("uncurry")
   val Vector = Value("vector")
   val Map = Value("map")
   val Array = Value("array")

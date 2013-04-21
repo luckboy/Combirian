@@ -316,5 +316,14 @@ case class StringValue(x: String) extends LiteralValue
 
 trait LiteralFunValue extends LiteralValue with FunValue
 case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralValue
-case class TupleFunValue(n: Int) extends LiteralValue
-case class ExtractFunValue(n: Int) extends LiteralValue
+
+case class TupleFunValue(n: Int) extends LiteralFunValue
+{
+  override def argCount = n
+  
+  override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value = 
+    if(argCount == argValues.size)
+      NonSharedTupleValue(argValues)
+    else
+      ErrorValue("incorrect number of arguments", Seq())      
+}

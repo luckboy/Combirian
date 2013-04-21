@@ -12,7 +12,6 @@ import pl.luckboy.combirian.interp.FloatValue
 import pl.luckboy.combirian.interp.StringValue
 import pl.luckboy.combirian.interp.BuiltinFunValue
 import pl.luckboy.combirian.interp.TupleFunValue
-import pl.luckboy.combirian.interp.ExtractFunValue
 import pl.luckboy.combirian.interp.BuiltinFunction
 
 object Parser extends StandardTokenParsers with PackratParsers
@@ -106,7 +105,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toDouble) }
   lazy val strVal = stringLit										^^ StringValue
   lazy val builtinFunVal1 = (
-      "-" | "~" | "cond" | "array" | "hash" | "size" | "haskey" | "keys" | "nth" | "updated" | "istypeof" |
+      "-" | "~" | "cond" | "uncurry" | "array" | "hash" | "size" | "haskey" | "keys" | "nth" | "updated" | "istypeof" |
       "intfrom" | "floatfrom") ^^ {
     s => BuiltinFunValue(BuiltinFunction.withName(s))
   }
@@ -119,7 +118,6 @@ object Parser extends StandardTokenParsers with PackratParsers
   }
   lazy val builtinFunVal3 = (
       "tuple" ~-> integer											^^ TupleFunValue
-      | "extract" ~-> integer										^^ ExtractFunValue
       )
   lazy val builtinFunVal = builtinFunVal1 | builtinFunVal2 | builtinFunVal3
   lazy val value = trueVal | falseVal | nilVal | charVal | intVal | floatVal | strVal | builtinFunVal 
