@@ -116,29 +116,49 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
 trait AbstractSeqValue extends Value
 {
   def elems: Seq[Value]
+
+  def updated(i: Int, value: Value): Value
 }
 
 // TupleValue
 
 trait TupleValue extends AbstractSeqValue
 {
-  override def toString = "(" + elems.mkString(", ") + ")"
+  override def toString = "(" + elems.mkString(", ") + ")"  
 }
 
 case class SharedTupleValue(elems: Seq[SharedValue]) extends TupleValue with SharedValue
 {
   override def copyAsNonShared = NonSharedTupleValue(elems.map { _.copyAsNonShared })
+  
+  override def updated(i: Int, value: Value) =
+    if(i >= 0 && i < elems.size)
+      SharedTupleValue(elems.updated(i, value.shared))
+    else
+      ErrorValue("index out of bounds", Seq())
 }
 
 case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
 {
   override def shared = SharedTupleValue(elems.map { _.shared })
+
+  override def updated(i: Int, value: Value) = 
+    if(i >= 0 && i < elems.size)
+      NonSharedTupleValue(elems.updated(i, value))
+    else
+      ErrorValue("index out of bounds", Seq())
 }
 
 // VectorValue
 
 case class VectorValue(elems: Seq[SharedValue]) extends AbstractSeqValue with SharedValue
 {
+  override def updated(i: Int, value: Value) =
+    if(i >= 0 && i < elems.size)
+      VectorValue(elems.updated(i, value.shared))
+    else
+      ErrorValue("index out of bounds", Seq())
+
   override def toString = "[" + elems.mkString(", ") + "]"
 }
 
@@ -154,13 +174,26 @@ trait ArrayValue extends AbstractSeqValue
 case class SharedArrayValue(elems: Seq[SharedValue]) extends ArrayValue with SharedValue
 {
   override def copyAsNonShared = NonSharedArrayValue(elems.toArray.clone)
+
+  override def updated(i: Int, value: Value) =
+    if(i >= 0 && i < elems.size)
+      NonSharedArrayValue(elems.updated(i, value.shared).toArray)
+    else
+      ErrorValue("index out of bounds", Seq())
 }
 
 case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 {
-  def elems = array.toSeq
+  override def elems = array.toSeq
   
   override def shared = SharedArrayValue(elems)
+
+  override def updated(i: Int, value: Value) =
+    if(i >= 0 && i < array.length) {
+      array(i) = value.shared
+      this
+    } else
+      ErrorValue("index out of bounds", Seq())
 }
 
 // AbstractMapValue
@@ -168,12 +201,20 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 trait AbstractMapValue extends Value
 {
   def elems: Map[SharedValue, SharedValue]
+  
+  def updated(key: Value, value: Value): Value
+  
+  def removed(key: Value): Value
 }
 
 // MapValue
 
 case class MapValue(elems: Map[SharedValue, SharedValue]) extends AbstractMapValue with SharedValue
 {
+  override def updated(key: Value, value: Value) = MapValue(elems.updated(key.shared, value.shared))
+  
+  override def removed(key: Value) = MapValue(elems - key.shared)
+
   override def toString = "{" + elems.map { case (key, value) => "(" + key + ", " + value + ")" }.mkString(", ") + "}"
 }
 
@@ -189,6 +230,10 @@ trait HashValue extends AbstractMapValue
 case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
 {
   override def copyAsNonShared = NonSharedHashValue(mutable.HashMap[SharedValue, SharedValue]() ++= elems)
+
+  override def updated(key: Value, value: Value) = NonSharedHashValue(mutable.HashMap[SharedValue, SharedValue]() ++= elems.updated(key.shared, value.shared))
+
+  override def removed(key: Value) = NonSharedHashValue(mutable.HashMap[SharedValue, SharedValue]() ++= (elems - key.shared))
 }
 
 case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]) extends HashValue
@@ -196,6 +241,16 @@ case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]
   override def elems = hashMap.toMap
 
   override def shared = SharedHashValue(elems)
+
+  override def updated(key: Value, value: Value) = {
+    hashMap(key.shared) = value.shared
+    this
+  }
+  
+  override def removed(key: Value) = {
+    hashMap -= key.shared
+    this
+  }
 }
 
 // FunValue
@@ -315,7 +370,7 @@ case class FloatValue(x: Double) extends LiteralValue
 case class StringValue(x: String) extends LiteralValue
 
 trait LiteralFunValue extends LiteralValue with FunValue
-case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralValue
+case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralFunValue
 
 case class TupleFunValue(n: Int) extends LiteralFunValue
 {
