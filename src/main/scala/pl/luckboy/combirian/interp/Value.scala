@@ -58,12 +58,16 @@ case class TailRecFunValue(fun: Value) extends SharedValue
       TailRecAppValue(fun, argValues)
     else
       ErrorValue("incorrect number of arguments", Seq())
+  
+  override def toString = "<tailrecfun>"
 }
 
 case class TailRecAppValue(fun: Value, args: Seq[Value]) extends SharedValue
 {
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value =
     ErrorValue("value of tail recursive application", Seq())
+    
+  override def toString = "<tailrecapp>"
 }
 
 class LazyValue(f: => Value) extends SharedValue
@@ -74,6 +78,8 @@ class LazyValue(f: => Value) extends SharedValue
     force.fullApply(argValues)(eval)(env)
       
   override lazy val force = f
+  
+  override def toString = force.toString
 }
 
 object LazyValue
@@ -101,6 +107,8 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
   }
   
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = this
+  
+  override def toString = "<error: " + message + ">"
 }
 
 // TupleValue
@@ -108,6 +116,8 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
 trait TupleValue extends Value
 {
   def elems: Seq[Value]
+  
+  override def toString = "(" + elems.mkString(", ") + ")"
 }
 
 case class SharedTupleValue(elems: Seq[SharedValue]) extends TupleValue with SharedValue
@@ -125,6 +135,8 @@ case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
 trait ArrayValue extends Value
 {
   def elems: Seq[SharedValue]
+  
+  override def toString = "[" + elems.mkString(", ") + "]"
 }
 
 case class SharedArrayValue(elems: Seq[SharedValue]) extends ArrayValue with SharedValue
@@ -144,6 +156,8 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 trait HashValue extends Value
 {
   def elems: Map[SharedValue, SharedValue]
+  
+  override def toString = "{" + elems.map { case (key, value) => "(" + key + ", " + value + ")" }.mkString(", ") + "}"
 }
 
 case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
@@ -179,6 +193,8 @@ case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends Fun
       }
     } else 
       ErrorValue("incorrect number of arguments", Seq())
+      
+  override def toString = combinatorBind.name
 }
 
 trait LambdaValue extends FunValue
@@ -203,6 +219,8 @@ trait LambdaValue extends FunValue
       }
     else
       ErrorValue("incorrect number of arguments", Seq())
+      
+  override def toString = "<lambda>"
 }
 
 case class SharedLambdaValue(closure: Seq[SharedValue], lambda: Lambda) extends LambdaValue with SharedValue
@@ -227,6 +245,15 @@ trait PartialAppValue extends Value
       fun.fullApply(args ++ argValues)(eval)(env)
     else
       ErrorValue("incorrect number of arguments", Seq())
+  
+  override def toString =
+    (Seq(fun) ++ args).map {
+      value =>
+        value match {
+          case _: PartialAppValue => "(" + value + ")"
+          case _                  => value.toString
+        }
+    }.mkString(" ")
 }
 
 case class SharedPartialAppValue(fun: SharedValue, args: Seq[SharedValue]) extends PartialAppValue with SharedValue
