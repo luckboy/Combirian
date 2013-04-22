@@ -105,8 +105,9 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toDouble) }
   lazy val strVal = stringLit										^^ StringValue
   lazy val builtinFunVal1 = (
-      "-" | "~" | "cond" | "uncurry" | "array" | "hash" | "size" | "haskey" | "keys" | "nth" | "updated" | "istypeof" |
-      "intfrom" | "floatfrom") ^^ {
+      "-" | "~" | "cond" | "uncurry" | "vector" | "array" | "size" | "haskey" | "keys" | "nth" | "updated" | 
+      "istypeof" | 
+      "charfrom" | "intfrom" | "floatfrom" | "stringfrom" | "tuplefrom" | "vectorfrom" | "mapfrom" | "arrayfrom" | "hashfrom") ^^ {
     s => BuiltinFunValue(BuiltinFunction.withName(s))
   }
   lazy val builtinFunVal2 = ("#" ~> (

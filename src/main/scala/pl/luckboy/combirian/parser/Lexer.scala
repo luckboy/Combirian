@@ -16,9 +16,10 @@ case class Lexer() extends StdLexical
 	  "let", "in",
       "true", "false", "nil",
       "if", "else", "tuple", "cond", "uncurry",
-      "vector", "map", "array", "hash",
+      "vector", "array",
       "size", "haskey", "keys", "keyarray", "nth", "updated",
-      "istypeof", "intfrom", "floatfrom", "vectorfrom", "mapfrom", "arrayfrom", "hashfrom",
+      "istypeof", 
+      "charfrom", "intfrom", "floatfrom", "stringfrom", "tuplefrom", "vectorfrom", "mapfrom", "arrayfrom", "hashfrom",
       "size2", "haskey2", "keys2", "keyarray2", "nth2")
   
   case class CharLit(chars: String) extends Token

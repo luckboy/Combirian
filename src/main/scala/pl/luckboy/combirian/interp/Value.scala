@@ -117,7 +117,12 @@ trait AbstractSeqValue extends Value
 {
   def elems: Seq[Value]
 
-  def updated(i: Int, value: Value): Value
+  def updated(i: Long, value: Value): Value
+}
+
+object AbstractSeqValue
+{
+  def unapply(value: AbstractSeqValue) = Some(value.elems)
 }
 
 // TupleValue
@@ -127,13 +132,18 @@ trait TupleValue extends AbstractSeqValue
   override def toString = "(" + elems.mkString(", ") + ")"  
 }
 
+object TupleValue
+{
+  def unapply(value: TupleValue) = Some(value.elems)
+}
+
 case class SharedTupleValue(elems: Seq[SharedValue]) extends TupleValue with SharedValue
 {
   override def copyAsNonShared = NonSharedTupleValue(elems.map { _.copyAsNonShared })
   
-  override def updated(i: Int, value: Value) =
+  override def updated(i: Long, value: Value) =
     if(i >= 0 && i < elems.size)
-      SharedTupleValue(elems.updated(i, value.shared))
+      SharedTupleValue(elems.updated(i.toInt, value.shared))
     else
       ErrorValue("index out of bounds", Seq())
 }
@@ -142,9 +152,9 @@ case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
 {
   override def shared = SharedTupleValue(elems.map { _.shared })
 
-  override def updated(i: Int, value: Value) = 
+  override def updated(i: Long, value: Value) = 
     if(i >= 0 && i < elems.size)
-      NonSharedTupleValue(elems.updated(i, value))
+      NonSharedTupleValue(elems.updated(i.toInt, value))
     else
       ErrorValue("index out of bounds", Seq())
 }
@@ -153,9 +163,9 @@ case class NonSharedTupleValue(elems: Seq[Value]) extends TupleValue
 
 case class VectorValue(elems: Seq[SharedValue]) extends AbstractSeqValue with SharedValue
 {
-  override def updated(i: Int, value: Value) =
+  override def updated(i: Long, value: Value) =
     if(i >= 0 && i < elems.size)
-      VectorValue(elems.updated(i, value.shared))
+      VectorValue(elems.updated(i.toInt, value.shared))
     else
       ErrorValue("index out of bounds", Seq())
 
@@ -171,13 +181,18 @@ trait ArrayValue extends AbstractSeqValue
   override def toString = "#[" + elems.mkString(", ") + "]"
 }
 
+object ArrayValue
+{
+  def unapply(value: ArrayValue) = Some(value.elems)
+}
+
 case class SharedArrayValue(elems: Seq[SharedValue]) extends ArrayValue with SharedValue
 {
   override def copyAsNonShared = NonSharedArrayValue(elems.toArray.clone)
 
-  override def updated(i: Int, value: Value) =
+  override def updated(i: Long, value: Value) =
     if(i >= 0 && i < elems.size)
-      NonSharedArrayValue(elems.updated(i, value.shared).toArray)
+      NonSharedArrayValue(elems.updated(i.toInt, value.shared).toArray)
     else
       ErrorValue("index out of bounds", Seq())
 }
@@ -188,9 +203,9 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
   
   override def shared = SharedArrayValue(elems)
 
-  override def updated(i: Int, value: Value) =
+  override def updated(i: Long, value: Value) =
     if(i >= 0 && i < array.length) {
-      array(i) = value.shared
+      array(i.toInt) = value.shared
       this
     } else
       ErrorValue("index out of bounds", Seq())
@@ -205,6 +220,11 @@ trait AbstractMapValue extends Value
   def updated(key: Value, value: Value): Value
   
   def removed(key: Value): Value
+}
+
+object AbstractMapValue
+{
+  def unapply(value: AbstractMapValue) = Some(value.elems)
 }
 
 // MapValue
@@ -225,6 +245,11 @@ trait HashValue extends AbstractMapValue
   override def elems: Map[SharedValue, SharedValue]
 
   override def toString = "#{" + elems.map { case (key, value) => "(" + key + ", " + value + ")" }.mkString(", ") + "}"
+}
+
+object HashValue
+{
+  def unapply(value: HashValue) = Some(value.elems)
 }
 
 case class SharedHashValue(elems: Map[SharedValue, SharedValue]) extends HashValue with SharedValue
@@ -361,8 +386,20 @@ trait LiteralValue extends SharedValue
     }
 }
 
-case object TrueValue extends LiteralValue
-case object FalseValue extends LiteralValue
+trait BooleanValue extends LiteralValue
+{
+  def isTrue = this == TrueValue
+
+  def isFalse = this == FalseValue
+}
+
+object BooleanValue
+{
+  def unapply(value: BooleanValue) = Some(value.isTrue)
+}
+
+case object TrueValue extends BooleanValue
+case object FalseValue extends BooleanValue
 case object NilValue extends LiteralValue
 case class CharValue(x: Char) extends LiteralValue
 case class IntValue(x: Long) extends LiteralValue
