@@ -3,6 +3,7 @@ import scala.collection.immutable.IntMap
 import scala.util.parsing.input.Position
 import pl.luckboy.combirian.parser
 import pl.luckboy.combirian.AbstractError
+import pl.luckboy.combirian.ResultUtils._
 
 object Transformer
 {
@@ -19,21 +20,7 @@ object Transformer
   }
   
   case class TailRecInfo(name: String, argCount: Int)
-  
-  private def zipResults[T, U](res1: Either[Seq[TransformerError], T], res2: Either[Seq[TransformerError], U]) =
-    (res1, res2) match {
-      case (Right(x), Right(y))       => Right(x, y)
-      case (Left(errs1), Left(errs2)) => Left(errs1 ++ errs2)
-      case (Left(errs), _)            => Left(errs)
-      case (_, Left(errs))            => Left(errs)
-    }
-
-  private def resultForFile[T](res: Either[Seq[TransformerError], T], file: java.io.File) =
-    res match {
-      case Right(x)   => Right(x)
-      case Left(errs) => Left(errs.map { _.copy(file = Some(file)) })
-    }
-  
+    
   private def closureVarIdxsFromTerm(term: parser.Term)(localVarIdxs: Map[String, Int]): Map[String, Int] =
     term match {
       case parser.App(fun, args)     =>

@@ -1,3 +1,3 @@
 package pl.luckboy.combirian
 
-trait AbstractError
+trait AbstractError extends AbstractErrorLike[AbstractError]

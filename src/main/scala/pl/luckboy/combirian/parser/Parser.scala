@@ -2,6 +2,8 @@ package pl.luckboy.combirian.parser
 import scala.util.parsing.combinator.syntactical.StandardTokenParsers
 import scala.util.parsing.combinator.PackratParsers
 import scala.util.parsing.input.Positional
+import scala.util.parsing.input.NoPosition
+import scala.io.Source
 import pl.luckboy.combirian.interp.LiteralValue
 import pl.luckboy.combirian.interp.TrueValue
 import pl.luckboy.combirian.interp.FalseValue
@@ -13,6 +15,7 @@ import pl.luckboy.combirian.interp.StringValue
 import pl.luckboy.combirian.interp.BuiltinFunValue
 import pl.luckboy.combirian.interp.TupleFunValue
 import pl.luckboy.combirian.interp.BuiltinFunction
+import pl.luckboy.combirian.ResultUtils._
 
 object Parser extends StandardTokenParsers with PackratParsers
 {
@@ -201,10 +204,36 @@ object Parser extends StandardTokenParsers with PackratParsers
       case None         => ParseTree(Nil)
     })
     
-  def parse(s: String) = 
+  def parse(s: String): Either[Seq[ParserError], ParseTree] = 
     phrase(parseTree)(new lexical.Scanner(s)) match {
       case Success(res, _)    => Right(res)
       case Failure(msg, next) => Left(Seq(ParserError(None, next.pos, msg)))
       case Error(msg, next)   => Left(Seq(ParserError(None, next.pos, "fatal: " + msg)))
+    }
+  
+  def parse(in: java.io.InputStream): Either[Seq[ParserError], ParseTree] = {
+    try {
+      val src = Source.fromInputStream(in).withClose { case () => in.close() }
+      parse(src.mkString)
+    } catch {
+      case e: java.io.IOException =>
+        Left(Seq(ParserError(None, NoPosition, "io error: " + e.getMessage())))
+    }
+  }.left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
+  
+  def parse(file: java.io.File): Either[Seq[ParserError], ParseTree] = {
+    val res = try {
+      parse(new java.io.FileInputStream(file))
+    } catch {
+      case e: java.io.IOException =>
+        Left(Seq(ParserError(None, NoPosition, "io error: " + e.getMessage())))
+    }
+    resultForFile(res, file)
+  }
+
+  def parse(files: Set[java.io.File]): Either[Seq[ParserError], Map[java.io.File, ParseTree]] =
+    files.foldLeft(Right(Map()): Either[Seq[ParserError], Map[java.io.File, ParseTree]]) {
+      case (Right(parseTrees), file) => parse(file).right.map { parseTree => parseTrees + (file -> parseTree) }
+      case (Left(errs), _)           => Left(errs)
     }
 }
