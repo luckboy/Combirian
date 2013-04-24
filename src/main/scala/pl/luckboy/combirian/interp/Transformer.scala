@@ -119,11 +119,11 @@ object Transformer
     }
   }
   
-  def transformTermForCond(term: parser.Term, canTailRec: Boolean)(scope: Scope): Either[Seq[TransformerError], Term] =
+  def transformTermForTailRec(term: parser.Term, canTailRec: Boolean, argCount: Int)(scope: Scope): Either[Seq[TransformerError], Term] =
     term match {
-      case parser.Lambda(args, body) if canTailRec =>
+      case parser.Lambda(args, body) if canTailRec  && args.size == argCount =>
         lambda(args, body, term.pos, scope.currentTailRecInfo)(scope)
-      case _                                       =>
+      case _                                                                 =>
         transformTerm(term, canTailRec)(scope)
     }
   
@@ -144,16 +144,16 @@ object Transformer
         }.getOrElse(app(fun, args, term.pos)(scope))
       case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(firstTerm, secondTerm, condTerm)) =>
         zipResults(
-            transformTermForCond(firstTerm, canTailRec)(scope), 
+            transformTermForTailRec(firstTerm, canTailRec, 1)(scope), 
             zipResults(
-                transformTermForCond(secondTerm, canTailRec)(scope), 
+                transformTermForTailRec(secondTerm, canTailRec, 1)(scope), 
                 transformTerm(condTerm, false)(scope))).right.map {
           case (firstTerm2, (secondTerm2, condTerm2)) =>
             App(Literal(BuiltinFunValue(BuiltinFunction.Cond), fun.pos), Seq(firstTerm2, secondTerm2, condTerm2), term.pos)
         }
       case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(otherTerm, tuple)) =>
         zipResults(
-            transformTermForCond(otherTerm, canTailRec)(scope),
+            transformTermForTailRec(otherTerm, canTailRec, 2)(scope),
             transformTerm(tuple, false)(scope)
             ).right.map {
           case (otherTerm2, tuple2) =>

@@ -260,8 +260,8 @@ object BuiltinFunValues
 
           override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
             argValues match {
-              case Seq(fun, TupleValue(elems)) => fun(elems)(eval)(env)
-              case _                           => ErrorValue("illegal arguments", Seq())
+              case Seq(fun, TupleValue(elems)) if elems.size == 2 => fun(elems)(eval)(env)
+              case _                                              => ErrorValue("illegal arguments", Seq())
             }
           
           override def fun = BuiltinFunction.Uncurry
