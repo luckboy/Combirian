@@ -151,6 +151,14 @@ object Transformer
           case (firstTerm2, (secondTerm2, condTerm2)) =>
             App(Literal(BuiltinFunValue(BuiltinFunction.Cond), fun.pos), Seq(firstTerm2, secondTerm2, condTerm2), term.pos)
         }
+      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(otherTerm, tuple)) =>
+        zipResults(
+            transformTermForCond(otherTerm, canTailRec)(scope),
+            transformTerm(tuple, false)(scope)
+            ).right.map {
+          case (otherTerm2, tuple2) =>
+            App(Literal(BuiltinFunValue(BuiltinFunction.Uncurry), fun.pos), Seq(otherTerm2, tuple2), term.pos)
+        }
       case parser.App(fun, args)     =>
         app(fun, args, term.pos)(scope)
       case parser.Let(binds, body)   =>
