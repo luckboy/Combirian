@@ -407,7 +407,18 @@ case class FloatValue(x: Double) extends LiteralValue
 case class StringValue(x: String) extends LiteralValue
 
 trait LiteralFunValue extends LiteralValue with FunValue
-case class BuiltinFunValue(fun: BuiltinFunction.Value) extends LiteralFunValue
+
+trait BuiltinFunValue extends LiteralFunValue
+{
+  def fun: BuiltinFunction.Value
+}
+
+object BuiltinFunValue
+{
+  def apply(fun: BuiltinFunction.Value) = BuiltinFunValues.builtinFunValues(fun)
+  
+  def unapply(value: BuiltinFunValue) = Some(value.fun)
+}
 
 case class TupleFunValue(n: Int) extends LiteralFunValue
 {

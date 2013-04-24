@@ -2,7 +2,7 @@ package pl.luckboy.combirian.interp
 import scala.collection.immutable.HashMap
 import scala.collection.mutable
 
-object BuiltinFunctions 
+object BuiltinFunValues 
 {
   private def mapFromTupleValues(values: Seq[Value]) =
     values.foldLeft(Right(Map()): Either[ErrorValue, Map[SharedValue, SharedValue]]) {
@@ -10,7 +10,7 @@ object BuiltinFunctions
       case _                                            => Left(ErrorValue("elements aren't pairs", Seq()))
     }
   
-  private val argCountsAndFuns = Map[BuiltinFunction.Value, (Int, PartialFunction[Seq[Value], Value])](
+  private val argCountsAndPartialFuns = Map[BuiltinFunction.Value, (Int, PartialFunction[Seq[Value], Value])](
       BuiltinFunction.Neg -> Tuple2(1, { 
         case Seq(IntValue(x))   => IntValue(- x)
         case Seq(FloatValue(x)) => FloatValue(- x)
@@ -224,6 +224,48 @@ object BuiltinFunctions
         case Seq(IntValue(i), first @ AbstractSeqValue(elems)) => if(i >= 0 && i < elems.size) NonSharedTupleValue(Array(first, elems(i.toInt))) else ErrorValue("index out of bounds", Seq())
         case Seq(key, first @ AbstractMapValue(elems))         => elems.get(key.shared).map { value => NonSharedTupleValue(Array(first, value)) }.getOrElse(ErrorValue("key isn't found", Seq()))
         case Seq(IntValue(i), first @ StringValue(x))          => if(i >= 0 && i < x.length) NonSharedTupleValue(Array(first, CharValue(x(i.toInt)))) else ErrorValue("index out of bounds", Seq())
-      })
-      )
+      }))
+  
+  val builtinFunValues = {
+    val builtinFunValues1 = argCountsAndPartialFuns.map {
+      case (builtinFun, (argCount, partialFun)) =>
+        (builtinFun, new BuiltinFunValue {
+          override def argCount = argCount
+
+          override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
+            partialFun.lift(argValues) match {
+              case Some(retValue) => retValue
+              case None           => ErrorValue("illegal arguments", Seq())
+            }
+         
+          override def fun = builtinFun
+        })
+    }.toMap
+    val builtinFunValues2 = Map(
+        BuiltinFunction.Cond -> new BuiltinFunValue {
+          override def argCount = 3
+          
+          override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
+            argValues match {
+              case Seq(firstFun, secondFun, cond: BooleanValue) =>
+                if(cond != FalseValue) firstFun(Array(cond))(eval)(env) else secondFun(Array(cond))(eval)(env)
+              case _                                            =>
+                ErrorValue("illegal arguments", Seq())
+            }
+          
+          override def fun = BuiltinFunction.Cond
+        },
+        BuiltinFunction.Uncurry -> new BuiltinFunValue {
+          override def argCount = 2
+
+          override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
+            argValues match {
+              case Seq(fun, TupleValue(elems)) => fun(elems)(eval)(env)
+              case _                           => ErrorValue("illegal arguments", Seq())
+            }
+          
+          override def fun = BuiltinFunction.Uncurry
+        })
+    builtinFunValues1 ++ builtinFunValues2
+  }
 }
