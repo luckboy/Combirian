@@ -39,7 +39,7 @@ trait Value
     recApply(this, argValues)(eval)(env)
   
   def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value = 
-    ErrorValue("no applicable value", Seq())
+    ErrorValue("non-applicative value", Seq())
     
   def force: Value = this
 }
