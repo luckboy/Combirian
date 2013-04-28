@@ -173,7 +173,7 @@ object BuiltinFunValues
           try {
             FloatValue(java.lang.Double.parseDouble(x))
           } catch {
-            case e: NumberFormatException => IntValue(0)
+            case e: NumberFormatException => FloatValue(0.0)
           }
       }),
       BuiltinFunction.Stringfrom -> Tuple2(1, {
