@@ -252,29 +252,29 @@ object Transformer
     }
   }
   
-  def transform(s: String)(tree: Tree): Either[Seq[AbstractError], Tree] = 
+  def transformString(s: String)(tree: Tree): Either[Seq[AbstractError], Tree] = 
     for {
-      parseTree <- parser.Parser.parse(s).right
+      parseTree <- parser.Parser.parseString(s).right
       newTree <- transform(Map[java.io.File, parser.ParseTree](), Some(parseTree))(tree).right
     } yield newTree
     
-  def transform(in: java.io.InputStream)(tree: Tree): Either[Seq[AbstractError], Tree] =
+  def transformInputStream(in: java.io.InputStream)(tree: Tree): Either[Seq[AbstractError], Tree] =
     for {
-      parseTree <- parser.Parser.parse(in).right
+      parseTree <- parser.Parser.parseInputStream(in).right
       newTree <- transform(Map[java.io.File, parser.ParseTree](), Some(parseTree))(tree).right
     } yield newTree
 
-  def transform(file: java.io.File)(tree: Tree): Either[Seq[AbstractError], Tree] =
+  def transformFile(file: java.io.File)(tree: Tree): Either[Seq[AbstractError], Tree] =
     for {
-      parseTree <- parser.Parser.parse(file).right
+      parseTree <- parser.Parser.parseFile(file).right
       newTree <- transform(Map(file -> parseTree), None)(tree).right
     } yield newTree
 
-  def transform(files: Set[java.io.File])(tree: Tree): Either[Seq[AbstractError], Tree] =
+  def transformFiles(files: Set[java.io.File])(tree: Tree): Either[Seq[AbstractError], Tree] =
     for {
       parseTrees <- files.foldLeft(Right(Map()): Either[Seq[AbstractError], Map[java.io.File, parser.ParseTree]]) {
         case (res, file) =>
-          zipResults(res, parser.Parser.parse(file)).right.map { case (newParseTrees, parseTree) => newParseTrees + (file -> parseTree) }
+          zipResults(res, parser.Parser.parseFile(file)).right.map { case (newParseTrees, parseTree) => newParseTrees + (file -> parseTree) }
       }.right
       newTree <- transform(parseTrees, None)(tree).right
     } yield newTree
