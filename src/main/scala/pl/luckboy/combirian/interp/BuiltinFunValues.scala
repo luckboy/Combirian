@@ -158,11 +158,23 @@ object BuiltinFunValues
         case Seq(CharValue(x))    => IntValue(x)
         case Seq(value: IntValue) => value
         case Seq(FloatValue(x))   => IntValue(x.toInt)
+        case Seq(StringValue(x))  => 
+          try {
+            IntValue(java.lang.Long.parseLong(x))
+          } catch {
+            case e: NumberFormatException => IntValue(0)
+          }
       }),
       BuiltinFunction.Floatfrom -> Tuple2(1, {
         case Seq(CharValue(x))      => FloatValue(x)
         case Seq(IntValue(x))       => FloatValue(x)
         case Seq(value: FloatValue) => value
+        case Seq(StringValue(x))    =>
+          try {
+            FloatValue(java.lang.Double.parseDouble(x))
+          } catch {
+            case e: NumberFormatException => IntValue(0)
+          }
       }),
       BuiltinFunction.Stringfrom -> Tuple2(1, {
         case Seq(value: StringValue) => value
