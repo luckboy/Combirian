@@ -19,6 +19,16 @@ object Transformer
     def withGlobalVarIdxs(idxs: Iterable[(String, Int)]) = copy(globalVarIdxs = globalVarIdxs ++ idxs)
   }
   
+  object Scope
+  {
+    val empty = Scope(
+        globalVarIdxs = Map(),
+        localVarIdxs = Map(),
+        localVarRefCounts = Map(),
+        currentTailRecInfo = None,
+        currentCombinatorIdx = None)
+  }
+  
   case class TailRecInfo(name: String, argCount: Int)
     
   private def closureVarIdxsFromTerm(term: parser.Term)(localVarIdxs: Map[String, Int]): Map[String, Int] =
@@ -230,11 +240,11 @@ object Transformer
   def transform(parseTrees: Map[java.io.File, parser.ParseTree], cmdParseTree: Option[parser.ParseTree])(tree: Tree): Either[Seq[TransformerError], Tree] = {
     val allParseTrees = parseTrees.map { case (file, parseTree) => (Some(file), parseTree) } ++ cmdParseTree.map { (None, _) }
     allParseTrees.foldLeft(Right(scopeFromTree(tree)): Either[Seq[TransformerError], Scope]) {
-      case (Right(scope), (file, parseTree)) => scopeFromParseTree(parseTree)(scope)
-      case (Left(errs), _)                   => Left(errs)
+      case (Right(newScope), (file, parseTree)) => scopeFromParseTree(parseTree)(newScope)
+      case (Left(errs), _)                      => Left(errs)
     }.right.flatMap {
       scope =>
-        allParseTrees.foldLeft((Right(tree), tree): (Either[Seq[TransformerError], Tree], Tree)) {
+        allParseTrees.foldLeft((Right(Tree(IntMap())), Tree(IntMap())): (Either[Seq[TransformerError], Tree], Tree)) {
           case ((res, newTree), (file, parseTree)) =>
             val res2 = transformParseTree(parseTree)(scope).right.map { newTree2 => newTree ++ file.map { newTree2.forFile(_) }.getOrElse(newTree2) }
             (res2, res.right.getOrElse(newTree))
@@ -242,9 +252,30 @@ object Transformer
     }
   }
   
-  def transform(s: String): Either[Seq[AbstractError], Tree] = 
+  def transform(s: String)(tree: Tree): Either[Seq[AbstractError], Tree] = 
     for {
       parseTree <- parser.Parser.parse(s).right
-      tree <- transform(Map(), Some(parseTree))(Tree(IntMap())).right
-    } yield tree
+      newTree <- transform(Map[java.io.File, parser.ParseTree](), Some(parseTree))(tree).right
+    } yield newTree
+    
+  def transform(in: java.io.InputStream)(tree: Tree): Either[Seq[AbstractError], Tree] =
+    for {
+      parseTree <- parser.Parser.parse(in).right
+      newTree <- transform(Map[java.io.File, parser.ParseTree](), Some(parseTree))(tree).right
+    } yield newTree
+
+  def transform(file: java.io.File)(tree: Tree): Either[Seq[AbstractError], Tree] =
+    for {
+      parseTree <- parser.Parser.parse(file).right
+      newTree <- transform(Map(file -> parseTree), None)(tree).right
+    } yield newTree
+
+  def transform(files: Set[java.io.File])(tree: Tree): Either[Seq[AbstractError], Tree] =
+    for {
+      parseTrees <- files.foldLeft(Right(Map()): Either[Seq[AbstractError], Map[java.io.File, parser.ParseTree]]) {
+        case (res, file) =>
+          zipResults(res, parser.Parser.parse(file)).right.map { case (newParseTrees, parseTree) => newParseTrees + (file -> parseTree) }
+      }.right
+      newTree <- transform(parseTrees, None)(tree).right
+    } yield newTree
 }

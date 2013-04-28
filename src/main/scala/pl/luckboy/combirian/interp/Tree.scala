@@ -27,6 +27,8 @@ case class Tree(combinatorBinds: IntMap[CombinatorBind])
 
 object Tree
 {
+  val empty = Tree(IntMap())
+  
   case class StringScope(globalVarNames: IntMap[String], localVarNames: IntMap[String], localVarCount: Int)
   {
     def withLocalVarNames(names: Seq[String]) = 

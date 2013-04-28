@@ -14,9 +14,9 @@ class Environment(values1: IntMap[Value], values2: Array[Value]) extends Environ
   override def withGlobalVars(values: Map[Int, Value]) = new Environment(globalVarValues ++ values, localVarValues)
 }
 
-object Environment
+object Environment extends EnvironmentFactory[Environment]
 {
-  def empty = Environment(IntMap(), Seq())
+  override def empty = Environment(IntMap(), Seq())
   
   def apply(globalVarValues: IntMap[Value], localVarValues: Seq[Value]) =
     new Environment(globalVarValues, localVarValues.toArray)

@@ -91,6 +91,8 @@ object LazyValue
 
 case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) extends SharedValue
 {
+  def stackTraceString = "error: " + message + "\n" + stackTrace.mkString("\n")
+
   override def isError = true
     
   private def lastStackTraceElemAndOthers =
@@ -108,7 +110,7 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
   
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = this
   
-  override def toString = "<error: " + message + ">"
+  override def toString = "<error: " + message + ">"  
 }
 
 // AbstractSeqValue
