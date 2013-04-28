@@ -9,8 +9,13 @@ object Initializer
 {
   def init[Env <: EnvironmentLike[Env]](tree: Tree)(eval: Evaluator[Env])(env: Env): Either[ErrorValue, Env] = {
     tree.combinatorBinds.foldLeft(Right((Nil, BitSet() | env.globalVarIdxs)): Either[ErrorValue, (List[Int], BitSet)]) {
-      case (Right((idxs, markedIdxs)), (idx, _)) => dependenciesAndMarkedIdxs(idx, markedIdxs)(tree)
-      case (Left(errValue), _)                   => Left(errValue)
+      case (Right((idxs, markedIdxs)), (idx, _)) =>
+        dependenciesAndMarkedIdxs(idx, markedIdxs)(tree) match {
+          case Right((tmpIdxs, newMarkedIdxs)) => Right((idxs ++ tmpIdxs, newMarkedIdxs))
+          case Left(errValue)                  => Left(errValue)
+        }
+      case (Left(errValue), _)                   =>
+        Left(errValue)
     } match {
       case Right((idxs, _)) =>
         val preinitVarValues = tree.combinatorBinds.map {
@@ -21,7 +26,7 @@ object Initializer
         }.toMap
         val preinitEnv = env.withGlobalVars(preinitVarValues)
         idxs.foldLeft(Right(preinitEnv): Either[ErrorValue, Env]) {
-          case (Right(env), idx) =>
+          case (Right(env), idx)   =>
             tree.combinatorBinds.get(idx).toRight(ErrorValue("undefined global variable", Seq())).right.flatMap {
               case combBind => 
                 CombinatorValue(idx, combBind)(Seq())(eval)(env) match {
@@ -29,6 +34,8 @@ object Initializer
                   case value                => Right(env.withGlobalVars(Map(idx -> value)))
                 }
             }
+          case (Left(errValue), _) =>
+            Left(errValue)
         }
     }
   }
@@ -36,8 +43,8 @@ object Initializer
   def dependenciesAndMarkedIdxs(idx: Int, markedIdxs: BitSet)(tree: Tree) =
     tree.combinatorBinds.get(idx).map {
       case CombinatorBind(name, comb @ Combinator(_, body, _), _) =>
-        if(comb.argCount == 0)
-          bfs(Queue(idx), Nil, markedIdxs)(tree)
+        if(comb.argCount == 0 && !markedIdxs.contains(idx))
+          bfs(Queue(idx), Nil, markedIdxs + idx)(tree)
         else
           Right((Nil, BitSet()))
     }.getOrElse(Left(ErrorValue("undefined global variable", Seq())))
