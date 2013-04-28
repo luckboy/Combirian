@@ -228,9 +228,9 @@ object BuiltinFunValues
   
   val builtinFunValues = {
     val builtinFunValues1 = argCountsAndPartialFuns.map {
-      case (builtinFun, (argCount, partialFun)) =>
+      case (builtinFun, (funArgCount, partialFun)) =>
         (builtinFun, new BuiltinFunValue {
-          override def argCount = argCount
+          override def argCount = funArgCount
 
           override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
             partialFun.lift(argValues) match {
