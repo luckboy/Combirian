@@ -26,6 +26,18 @@ class InterpreterSpec[Env <: EnvironmentLike[Env]] extends FlatSpec with ShouldM
     it should "interpret a simple program" in {
       interpString("main = \\x -> (x + x, nil)", "Hello") should be ===(Right("HelloHello\n"))
     }
+    
+    it should "initialize all variables" in {
+      interpString("""
+main = \x -> (g1 + g2 + g3 + g4, nil)
+f2 x y = (f1 (x * x) (y * y)) + g2
+g1 = g2 // 5 
+g2 = 5  // 5
+g3 = f1 g1 3 // 5 + 3 = 8
+f1 x y = x + y
+g4 = f2 10 4 // (10 * 10) + (4 * 4) + 5 = 121
+""", "Some thing") should be ===(Right("139\n"))
+    }
   }
   
   "A interpreter for an eager evaluator" should behave like interpreter(EagerEvaluator)(Environment)
