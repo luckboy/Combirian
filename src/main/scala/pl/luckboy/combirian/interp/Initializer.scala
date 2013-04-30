@@ -78,7 +78,7 @@ object Initializer
             case Some(CombinatorBind(name, comb @ Combinator(_, body, _), _)) =>
               val neighborIdxs2 = usedGlobalVarIdxsFromTerm(body).filterNot(markedIdxs.contains)
               val newStck2 = newStck.push(idx -> newNeighborIdxs).push(neighborIdx -> neighborIdxs2.toList)
-              dfs(newStck2, idxs, markedIdxs | neighborIdxs2)(tree)
+              dfs(newStck2, idxs, markedIdxs + neighborIdx)(tree)
             case None =>
               Left(ErrorValue("undefined global variable", Seq()))
           }
