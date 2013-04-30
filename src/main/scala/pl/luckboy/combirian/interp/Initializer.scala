@@ -1,7 +1,7 @@
 package pl.luckboy.combirian.interp
 import scala.collection.immutable.BitSet
 import scala.collection.immutable.IntMap
-import scala.collection.immutable.Queue
+import scala.collection.immutable.Stack
 import scala.util.parsing.input.NoPosition
 import scala.annotation.tailrec
 
@@ -19,7 +19,7 @@ object Initializer
     } match {
       case Right((idxs, _)) =>
         val preinitVarValues = tree.combinatorBinds.map {
-          case (idx, CombinatorBind(_, Combinator(Seq(), _, _), _)) =>
+          case (idx, CombinatorBind(name, Combinator(Seq(), _, _), _)) =>
             (idx, ErrorValue("initialization cycle", Seq()))
           case (idx, combBind)                                    =>
             (idx, CombinatorValue(idx, combBind))
@@ -43,10 +43,13 @@ object Initializer
   def dependenciesAndMarkedIdxs(idx: Int, markedIdxs: BitSet)(tree: Tree) =
     tree.combinatorBinds.get(idx).map {
       case CombinatorBind(name, comb @ Combinator(_, body, _), _) =>
-        if(comb.argCount == 0 && !markedIdxs.contains(idx))
-          bfs(Queue(idx), Nil, markedIdxs + idx)(tree)
-        else
-          Right((Nil, BitSet()))
+        if(comb.argCount == 0 && !markedIdxs.contains(idx)) {
+          val neighborIdxs = usedGlobalVarIdxsFromTerm(body).filterNot(markedIdxs.contains)
+          dfs(Stack(idx -> neighborIdxs.toList), Nil, markedIdxs + idx)(tree).right.map {
+            case (idxs, markedIdxs) => (idxs.reverse, markedIdxs)
+          }
+        } else
+          Right((Nil, markedIdxs))
     }.getOrElse(Left(ErrorValue("undefined global variable", Seq())))
   
   private def usedGlobalVarIdxsFromTerm(term: Term): BitSet =
@@ -66,16 +69,21 @@ object Initializer
     }
  
   @tailrec
-  private def bfs(q: Queue[Int], idxs: List[Int], markedIdxs: BitSet)(tree: Tree): Either[ErrorValue, (List[Int], BitSet)] =
-    if(!q.isEmpty) {
-      val (idx, newQ) = q.dequeue
-      tree.combinatorBinds.get(idx) match {
-        case Some(CombinatorBind(name, comb @ Combinator(_, body, _), _)) =>
-          val invisitedNeighborIdxs = usedGlobalVarIdxsFromTerm(body).filterNot(markedIdxs.contains)
-          val newIdxs = if(comb.argCount == 0) idx :: idxs else idxs
-          bfs(newQ.enqueue(invisitedNeighborIdxs), newIdxs, markedIdxs | invisitedNeighborIdxs)(tree)
-        case None =>
-          Left(ErrorValue("undefined global variable", Seq()))
+  private def dfs(stck: Stack[(Int, List[Int])], idxs: List[Int], markedIdxs: BitSet)(tree: Tree): Either[ErrorValue, (List[Int], BitSet)] =
+    if(!stck.isEmpty) {
+      val ((idx, neighborIdxs), newStck) = stck.pop2
+      neighborIdxs match {
+        case neighborIdx :: newNeighborIdxs =>
+          tree.combinatorBinds.get(neighborIdx) match {
+            case Some(CombinatorBind(name, comb @ Combinator(_, body, _), _)) =>
+              val neighborIdxs2 = usedGlobalVarIdxsFromTerm(body).filterNot(markedIdxs.contains)
+              val newStck2 = newStck.push(idx -> newNeighborIdxs).push(neighborIdx -> neighborIdxs2.toList)
+              dfs(newStck2, idxs, markedIdxs | neighborIdxs2)(tree)
+            case None =>
+              Left(ErrorValue("undefined global variable", Seq()))
+          }
+        case Nil                            =>
+          dfs(newStck, idx :: idxs, markedIdxs)(tree)
       }
     } else
       Right(idxs, markedIdxs)
