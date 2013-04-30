@@ -199,7 +199,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   
   lazy val definition = p(ident ~ (arg *) ~ ("=" ~-> noNlParsers.expr)	^^ { case s ~ as ~ t => Def(s, as, t) })
   
-  lazy val parseTree = p(((definition ~ ((semi ~> definition) *)) ?)			^^ {
+  lazy val parseTree = p(rep("\n") ~> ((definition ~ ((semi ~> definition) *)) ?) <~ rep("\n") ^^ {
       case Some(d ~ ds) => ParseTree(d :: ds)
       case None         => ParseTree(Nil)
     })
