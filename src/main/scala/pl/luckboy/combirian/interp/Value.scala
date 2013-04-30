@@ -320,10 +320,13 @@ trait LambdaValue extends FunValue
         case retValue @ TailRecAppValue(fun, args) =>
           if(this eq fun) fullApply(args)(eval)(env) else retValue
         case retValue                              =>
-          env.globalVarValue(lambda.combinatorIdx) match {
-            case CombinatorValue(_, combBind) => retValue.withFileAndName(combBind.file, Some(combBind.name))
-            case _                            => ErrorValue("lambda expression isn't defined at combinator", Seq())
-          }
+          if(!retValue.isError)
+            retValue
+          else
+            env.globalVarValue(lambda.combinatorIdx) match {
+              case CombinatorValue(_, combBind) => retValue.withFileAndName(combBind.file, None)
+              case _                            => retValue.withFileAndName(env.currentFile, None)
+            }
       }
     else
       ErrorValue("incorrect number of arguments", Seq())

@@ -37,6 +37,10 @@ trait EnvironmentLike[+This <: EnvironmentLike[This]]
   
   def globalVarIdxs = globalVarValues.keySet
   
+  def currentFile: Option[java.io.File]
+  
+  def withCurrentFile(file: Option[java.io.File]): This
+  
   override def clone: This = {
     val newEnv = createEnv(localVarValues.length)
     localVarValues.copyToArray(newEnv.localVarValues)

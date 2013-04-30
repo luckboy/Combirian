@@ -29,7 +29,7 @@ object Initializer
           case (Right(env), idx)   =>
             tree.combinatorBinds.get(idx).toRight(ErrorValue("undefined global variable", Seq())).right.flatMap {
               case combBind => 
-                CombinatorValue(idx, combBind)(Seq())(eval)(env) match {
+                CombinatorValue(idx, combBind)(Seq())(eval)(env.withCurrentFile(combBind.file)) match {
                   case errValue: ErrorValue => Left(errValue)
                   case value                => Right(env.withGlobalVars(Map(idx -> value)))
                 }

@@ -10,8 +10,9 @@ object CombirianBuild extends Build {
       name := "Combirian",
       organization := "pl.luckboy.combirian",
       version := "0.1-SNAPSHOT",
-      scalaVersion := "2.9.2"
+      scalaVersion := "2.9.2",
       // add other settings here
+      libraryDependencies += "org.scalatest" %% "scalatest" % "1.9.1" % "test"
     )
   )
 }
