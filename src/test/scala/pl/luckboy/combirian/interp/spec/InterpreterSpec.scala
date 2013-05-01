@@ -88,7 +88,11 @@ main = \x -> let
     let
       f = \v -> updated 2 v a 
     in
-      ((stringfrom (f 10)) + "," + (stringfrom (f 15)), nil)
+      let
+        a1 = f 10
+        a2 = f 15
+      in
+        ((stringfrom a1) + "," + (stringfrom a2), nil)
 """, "Some thing") should be ===(Right("#[1, 2, 10, 4],#[1, 2, 15, 4]\n"))
     }
   }
