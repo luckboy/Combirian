@@ -74,16 +74,24 @@ object Initializer
       val ((idx, neighborIdxs), newStck) = stck.pop2
       neighborIdxs match {
         case neighborIdx :: newNeighborIdxs =>
-          tree.combinatorBinds.get(neighborIdx) match {
+          if(!markedIdxs.contains(neighborIdx))
+            tree.combinatorBinds.get(neighborIdx) match {
+              case Some(CombinatorBind(name, Combinator(_, body, _), _)) =>
+                val neighborIdxs2 = usedGlobalVarIdxsFromTerm(body)
+                val newStck2 = newStck.push(idx -> newNeighborIdxs).push(neighborIdx -> neighborIdxs2.toList)
+                dfs(newStck2, idxs, markedIdxs + neighborIdx)(tree)
+              case None =>
+                Left(ErrorValue("undefined global variable", Seq()))
+            }
+          else
+            dfs(newStck.push(idx -> newNeighborIdxs), idxs, markedIdxs + neighborIdx)(tree)
+        case Nil                            =>
+          tree.combinatorBinds.get(idx) match {
             case Some(CombinatorBind(name, comb @ Combinator(_, body, _), _)) =>
-              val neighborIdxs2 = usedGlobalVarIdxsFromTerm(body).filterNot(markedIdxs.contains)
-              val newStck2 = newStck.push(idx -> newNeighborIdxs).push(neighborIdx -> neighborIdxs2.toList)
-              dfs(newStck2, idxs, markedIdxs + neighborIdx)(tree)
-            case None =>
+              dfs(newStck, if(comb.argCount == 0) idx :: idxs else idxs, markedIdxs)(tree)
+            case None                                                         =>
               Left(ErrorValue("undefined global variable", Seq()))
           }
-        case Nil                            =>
-          dfs(newStck, idx :: idxs, markedIdxs)(tree)
       }
     } else
       Right(idxs, markedIdxs)
