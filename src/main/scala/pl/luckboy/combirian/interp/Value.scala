@@ -316,7 +316,7 @@ trait LambdaValue extends FunValue
   @tailrec
   override final def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value =
     if(argCount == argValues.size)
-      env.withClosureAndArgs(Seq(), argValues, lambda.localVarCount)(eval.eval(lambda.body)) match {
+      env.withClosureAndArgs(closure, argValues, lambda.localVarCount)(eval.eval(lambda.body)) match {
         case retValue @ TailRecAppValue(fun, args) =>
           if(this eq fun) fullApply(args)(eval)(env) else retValue
         case retValue                              =>
@@ -388,6 +388,7 @@ trait LiteralValue extends SharedValue
       case FloatValue(x)        => x.toString
       case StringValue(x)       => "\"" + x.toList.map { c => if(c == '"') "\\\"" else c.toString }.mkString("") + "\""
       case BuiltinFunValue(fun) => fun.toString
+      case TupleFunValue(n)     => "tuple " + n 
     }
 }
 
