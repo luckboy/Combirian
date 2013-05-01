@@ -5,7 +5,7 @@ import scala.util.parsing.input.CharArrayReader.EofCh
 case class Lexer() extends StdLexical
 {
   delimiters ++= List(
-      "\\", "->", "=", "(", ")", ",", ";", "\n",
+      "\\", "->", "=", "(", ")", "[", "]", "{", "}", ",", ";", "\n",
       "#",
       "+", "-", "*", "/", "%",
       "&", "|", "^", 
