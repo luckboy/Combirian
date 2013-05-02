@@ -17,7 +17,7 @@ case class Tree(combinatorBinds: IntMap[CombinatorBind])
         localVarCount = 0)
     combinatorBinds.groupBy { _._2.file }.map {
       case (file, combBinds) =>
-        "// " + file.map { _.getPath }.getOrElse("--") + "\n" +
+        "// " + file.map { _.getPath }.getOrElse("--") + "\n\n" +
         combBinds.map { 
           case (idx, combBind) =>
             combBind.toIntendedStringForScope(0, scope, canShowNames) + " //<g" + idx + ">" }.mkString("\n\n")
@@ -52,8 +52,8 @@ case class Combinator(argNames: Seq[String], body: Term, localVarCount: Int)
   
   def toIntendedStringForNameWithScope(n: Int, name: String, scope: Tree.StringScope, canShowNames: Boolean) = {
     val newScope = if(canShowNames) scope.withLocalVarNames(argNames) else scope.withLocalVars(argNames.size)
-    name + " " + argNames.mkString(" ") + 
-    (if(localVarCount != 0) " /*lvc=" + localVarCount + "*/ = " else " = ") +
+    name + " " + argNames.map { _ + " " }.mkString("") + 
+    (if(localVarCount != 0) "/*lvc=" + localVarCount + "*/ = " else "= ") +
     body.toIntendedStringForScope(n + 2, newScope, canShowNames) 
   }
 }
@@ -106,8 +106,8 @@ trait Term
           else
             ""
         }) + 
-        "\\" + argNames.mkString(" ") + 
-        (if(localVarCount != 0) " /*lvc=" + localVarCount + "*/ -> "  else " -> ") + 
+        "\\" + argNames.map { _ + " " }.mkString("") + 
+        (if(localVarCount != 0) "/*lvc=" + localVarCount + "*/ -> "  else "-> ") + 
         body.toIntendedStringForScope(n + 2, newScope, canShowNames)
       case GlobalVar(idx, _) => 
         globalVarName(idx, scope, canShowNames)

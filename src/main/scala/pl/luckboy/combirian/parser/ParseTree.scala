@@ -4,12 +4,12 @@ import pl.luckboy.combirian.interp.LiteralValue
 
 case class ParseTree(defs: List[Def]) extends Positional
 {
-  override def toString = defs.mkString("\n")
+  override def toString = defs.mkString("\n\n")
 }
 
 case class Def(name: String, args: Seq[Arg], body: Term) extends Positional
 {
-  override def toString = name + " " + args.mkString(" ") + " = " + body.toIntendedString(2)
+  override def toString = name + " " + args.map { _ + " " }.mkString("") + "= " + body.toIntendedString(2)
 }
 
 trait Term extends Positional
@@ -28,7 +28,7 @@ trait Term extends Positional
         "let\n" + (" " * (n + 2)) + binds.map { _.toIntendedString(n + 4) }.mkString("\n" + (" " * (n + 2))) + "\n" +
         (" " * n) + "in\n" + (" " * (n + 2)) + body.toIntendedString(n + 4)
       case Lambda(args, body) =>
-        "\\" + args.mkString(" ") + " -> " + body.toIntendedString(n + 2)
+        "\\" + args.map { _ + " " }.mkString("") + "-> " + body.toIntendedString(n + 2)
       case Var(name) =>
         name
       case Literal(value) =>

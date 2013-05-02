@@ -58,7 +58,7 @@ object Main
                 parseTrees =>
                   if(opts1.contains(Opt1.Verbose)) {
                     println("Parse trees:")
-                    for((file, parseTree) <- parseTrees) { println("// " + file.getPath()); println(parseTree) }
+                    for((file, parseTree) <- parseTrees) { println("// " + file.getPath() + "\n"); println(parseTree) }
                     println()
                   }
                   parseTrees
