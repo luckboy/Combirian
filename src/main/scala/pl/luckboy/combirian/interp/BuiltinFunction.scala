@@ -2,13 +2,13 @@ package pl.luckboy.combirian.interp
 
 object BuiltinFunction extends Enumeration 
 {
-  val Neg = Value("-")
+  val Neg = Value("neg")
   val Add = Value("#+")
   val Sub = Value("#-")
   val Mul = Value("#*")
   val Div = Value("#/")
   val Mod = Value("#%")
-  val Not = Value("~") 
+  val Not = Value("not") 
   val And = Value("#&")
   val Or = Value("#|")
   val Xor = Value("#^")

@@ -108,7 +108,7 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val floatVal = elem("", _.isInstanceOf[lexical.FloatLit])	^^ { e => FloatValue(e.chars.toDouble) }
   lazy val strVal = stringLit										^^ StringValue
   lazy val builtinFunVal1 = (
-      "-" | "~" | "cond" | "uncurry" | "vector" | "array" | "size" | "haskey" | "keys" | "nth" | "updated" | 
+      "neg" | "not" | "cond" | "uncurry" | "vector" | "array" | "size" | "haskey" | "keys" | "nth" | "updated" | 
       "istypeof" | 
       "charfrom" | "intfrom" | "floatfrom" | "stringfrom" | "tuplefrom" | "vectorfrom" | "mapfrom" | "arrayfrom" | "hashfrom") ^^ {
     s => BuiltinFunValue(BuiltinFunction.withName(s))
@@ -133,7 +133,11 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val binOp3 = p(("&" | "|" | "^")								^^ BinOp)
   lazy val binOp4 = p(("+" | "-")									^^ BinOp)
   lazy val binOp5 = p(("*" | "/" | "%")								^^ BinOp)
- 
+  
+  case class UnaryOp(s: String) extends Positional
+
+  lazy val unaryOp = p(("-" | "~")									^^ UnaryOp)
+  
   case class Positioned() extends Positional
   
   lazy val ifOp = p("if"											^^^ Positioned())
@@ -151,7 +155,8 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val expr2: PackratParser[Term] = p((expr2 | expr3) ~~ binOp2 ~- expr3 ^^ mkBinOp) | expr3
     lazy val expr3: PackratParser[Term] = p((expr3 | expr4) ~~ binOp3 ~- expr4 ^^ mkBinOp) | expr4
     lazy val expr4: PackratParser[Term] = p((expr4 | expr5) ~~ binOp4 ~- expr5 ^^ mkBinOp) | expr5
-    lazy val expr5: PackratParser[Term] = p((expr5 | exprN) ~~ binOp5 ~- exprN ^^ mkBinOp) | exprN
+    lazy val expr5: PackratParser[Term] = p((expr5 | expr6) ~~ binOp5 ~- expr6 ^^ mkBinOp) | expr6
+    lazy val expr6: PackratParser[Term] = p(unaryOp ~~ exprN ^^ mkUnaryOp) | exprN
     
     lazy val exprN: PackratParser[Term] = app | let | lambda | ifElse | simpleExpr
     lazy val simpleExpr = variable | literal | unit | tuple | vector | map | array | hash | ("(" ~-> nlParsers.expr <~- ")")
@@ -184,6 +189,13 @@ object Parser extends StandardTokenParsers with PackratParsers
     x match { 
       case t1 ~ (bo @ BinOp(s)) ~ t2 =>
         App(Literal(BuiltinFunValue(BuiltinFunction.withName("#" + s))).setPos(bo.pos), List(t1, t2))
+    }
+  
+  def mkUnaryOp(x: UnaryOp ~ Term) =
+    x match {
+      case (uo @ UnaryOp(s)) ~ t =>
+        val funNames = Map("-" -> "neg", "~" -> "not")
+        App(Literal(BuiltinFunValue(BuiltinFunction.withName(funNames(s)))).setPos(uo.pos), List(t))
     }
   
   def mkColl(fun: BuiltinFunction.Value)(x: Positioned ~ Option[Term ~ List[Term]]) =

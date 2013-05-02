@@ -15,7 +15,7 @@ case class Lexer() extends StdLexical
   reserved ++= List(
 	  "let", "in",
       "true", "false", "nil",
-      "if", "else", "tuple", "cond", "uncurry",
+      "if", "else", "neg", "not", "tuple", "cond", "uncurry",
       "vector", "array",
       "size", "haskey", "keys", "keyarray", "nth", "updated",
       "istypeof", 
