@@ -76,7 +76,11 @@ main = \x -> let
 main = \x -> let
     a = #[1, 2, 3, 4]
   in
-    ((stringfrom a) + "," + (stringfrom (updated 1 10 a)) + "," + (stringfrom (updated 2 15 a)), nil)
+    let
+      a1 = updated 1 10 a
+      a2 = updated 2 15 a
+    in
+      ((stringfrom a) + "," + (stringfrom a1) + "," + (stringfrom a2), nil)
 """, "Some thing") should be ===(Right("#[1, 2, 3, 4],#[1, 10, 3, 4],#[1, 2, 15, 4]\n"))
     }
 
@@ -94,6 +98,47 @@ main = \x -> let
       in
         ((stringfrom a1) + "," + (stringfrom a2), nil)
 """, "Some thing") should be ===(Right("#[1, 2, 10, 4],#[1, 2, 15, 4]\n"))
+    }
+    
+    it should "create a copy of the array with a new element in partial application" in {
+      interpString("""
+main = \x -> let
+    a = #[1, 2, 3, 4]
+    f = \b v -> updated 3 v b
+  in
+    let
+      g = f a
+    in
+      let
+        a1 = g 101
+        a2 = g 202
+      in
+        ((stringfrom a1) + "," + (stringfrom a2), nil)
+""", "Some thing") should be ===(Right("#[1, 2, 3, 101],#[1, 2, 3, 202]\n"))
+    }
+    
+    it should "interpret a tail recursion" in {
+      val s = """
+f n i v = if(i <= n) f n (i + 1) (v + i) else v
+main = \x -> (f (intfrom x) 1 [], nil)
+"""
+      interpString(s, "5") should be ===(Right("[1, 2, 3, 4, 5]\n"))
+      interpString(s, "10") should be ===(Right("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"))
+    }
+
+    it should "interpret a tail recursion for lambda combinator" in {
+      val s = """
+f = \n i v -> if(i <= n) f n (i + 1) (v + i) else v
+main = \x -> (f (intfrom x) 1 [], nil)
+"""
+      interpString(s, "5") should be ===(Right("[1, 2, 3, 4, 5]\n"))
+      interpString(s, "10") should be ===(Right("[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]\n"))
+    }
+    
+    it should "read many lines" in {
+      val s = "main = \\x -> (x + x, main)"
+      interpString(s, "Line1\nLine2\nLine3\n") should be ===Right("Line1Line1\nLine2Line2\nLine3Line3\n")
+      interpString(s, "Line1\nLine2\nLine3\nLine4") should be ===Right("Line1Line1\nLine2Line2\nLine3Line3\nLine4Line4\n")
     }
   }
   
