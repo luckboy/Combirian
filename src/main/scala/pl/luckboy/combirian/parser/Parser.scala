@@ -154,7 +154,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     lazy val expr5: PackratParser[Term] = p((expr5 | exprN) ~~ binOp5 ~- exprN ^^ mkBinOp) | exprN
     
     lazy val exprN: PackratParser[Term] = app | let | lambda | ifElse | simpleExpr
-    lazy val simpleExpr = variable | literal | unit | tuple | array | hash | ("(" ~-> nlParsers.expr <~- ")")
+    lazy val simpleExpr = variable | literal | unit | tuple | vector | map | array | hash | ("(" ~-> nlParsers.expr <~- ")")
     
     lazy val app = p(simpleExpr ~~ (simpleExpr ~+)					^^ { case t ~ ts => App(t, ts) })
     lazy val let = p("let" ~-> binds ~- ("in" ~-> expr)				^^ { case bs ~ t => Let(bs, t) })
