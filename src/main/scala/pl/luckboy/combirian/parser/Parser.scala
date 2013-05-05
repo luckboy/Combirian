@@ -110,7 +110,8 @@ object Parser extends StandardTokenParsers with PackratParsers
   lazy val builtinFunVal1 = (
       "neg" | "not" | "cond" | "uncurry" | "vector" | "array" | "size" | "haskey" | "keys" | "nth" | "updated" | 
       "istypeof" | 
-      "charfrom" | "intfrom" | "floatfrom" | "stringfrom" | "tuplefrom" | "vectorfrom" | "mapfrom" | "arrayfrom" | "hashfrom") ^^ {
+      "charfrom" | "intfrom" | "floatfrom" | "stringfrom" | "tuplefrom" | "vectorfrom" | "mapfrom" | "arrayfrom" | "hashfrom" |
+      "size2" | "haskey2" | "keys2" | "keyarray2" | "nth2") ^^ {
     s => BuiltinFunValue(BuiltinFunction.withName(s))
   }
   lazy val builtinFunVal2 = ("#" ~> (
