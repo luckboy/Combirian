@@ -20,4 +20,3 @@ main = \s ->
     n = intfrom s
   in
     (primesFromArray 2 n (eSieve 2 n (array (n + 1) true)) [], nil)
- 
