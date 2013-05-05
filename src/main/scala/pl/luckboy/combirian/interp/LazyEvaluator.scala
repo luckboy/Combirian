@@ -4,11 +4,11 @@ object LazyEvaluator extends Evaluator[Environment]
 {
   override def valueFromTerm(term: Term)(env: Environment) = {
     term match {
-      case _: GlobalVar | _: TailRecGlobalVar | _: SharedLocalVar | _: NonSharedLocalVar =>
-        eval(term)(env)
-      case _ =>
+      case _: App =>
         val newEnv = env.clone()
         LazyValue(eval(term)(newEnv).force)
+      case _      =>
+        eval(term)(env)
     }
   }
 }
