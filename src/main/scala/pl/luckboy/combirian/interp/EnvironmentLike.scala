@@ -44,6 +44,7 @@ trait EnvironmentLike[+This <: EnvironmentLike[This]]
   override def clone: This = {
     val newEnv = createEnv(localVarValues.length)
     localVarValues.copyToArray(newEnv.localVarValues)
+    newEnv.localDefinedVarCount = localDefinedVarCount
     newEnv
   }
 }

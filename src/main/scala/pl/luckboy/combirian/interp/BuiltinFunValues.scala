@@ -10,7 +10,7 @@ object BuiltinFunValues
       case _                                            => Left(ErrorValue("elements aren't pairs", Seq()))
     }
   
-  private val argCountsAndPartialFuns = Map[BuiltinFunction.Value, (Int, PartialFunction[Seq[Value], Value])](
+  private val argCountsAndPartialFuns = Map[BuiltinFunction.Value, (Int, PartialFunction[Seq[EvaluatedValue], Value])](
       BuiltinFunction.Neg -> Tuple2(1, { 
         case Seq(IntValue(x))   => IntValue(- x)
         case Seq(FloatValue(x)) => FloatValue(- x)
@@ -245,7 +245,7 @@ object BuiltinFunValues
           override def argCount = funArgCount
 
           override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
-            partialFun.lift(argValues) match {
+            partialFun.lift(argValues.map { _.force }) match {
               case Some(retValue) => retValue
               case None           => ErrorValue("illegal arguments", Seq())
             }
@@ -258,7 +258,7 @@ object BuiltinFunValues
           override def argCount = 3
           
           override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
-            argValues match {
+            argValues.map { _.force } match {
               case Seq(firstFun, secondFun, cond: BooleanValue) =>
                 if(cond != FalseValue) firstFun(Array(cond))(eval)(env) else secondFun(Array(cond))(eval)(env)
               case _                                            =>
@@ -271,7 +271,7 @@ object BuiltinFunValues
           override def argCount = 2
 
           override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
-            argValues match {
+            argValues.map { _.force } match {
               case Seq(fun, TupleValue(elems)) if elems.size == 2 => fun(elems)(eval)(env)
               case _                                              => ErrorValue("illegal arguments", Seq())
             }

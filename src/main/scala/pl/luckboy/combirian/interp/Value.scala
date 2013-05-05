@@ -40,8 +40,8 @@ trait Value
   
   def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value = 
     ErrorValue("non-applicative value", Seq())
-    
-  def force: Value = this
+
+  def force: EvaluatedValue
 }
 
 trait SharedValue extends Value
@@ -49,7 +49,24 @@ trait SharedValue extends Value
   override def shared: SharedValue = this
 }
 
-case class TailRecFunValue(fun: Value) extends SharedValue
+trait EvaluatedValue extends Value
+{
+  override def force: EvaluatedValue = this
+  
+  override def shared: SharedValue
+}
+
+trait UnevaluatedValue extends Value
+{
+  override def argCount = force.argCount
+  
+  override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
+    force.fullApply(argValues)(eval)(env)      
+
+  override def toString = force.toString
+}
+
+case class TailRecFunValue(fun: Value) extends SharedValue with EvaluatedValue
 {
   override def argCount = fun.argCount
   
@@ -62,7 +79,7 @@ case class TailRecFunValue(fun: Value) extends SharedValue
   override def toString = "<tailrecfun>"
 }
 
-case class TailRecAppValue(fun: Value, args: Seq[Value]) extends SharedValue
+case class TailRecAppValue(fun: Value, args: Seq[Value]) extends SharedValue with EvaluatedValue
 {
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env): Value =
     ErrorValue("value of tail recursive application", Seq())
@@ -70,26 +87,37 @@ case class TailRecAppValue(fun: Value, args: Seq[Value]) extends SharedValue
   override def toString = "<tailrecapp>"
 }
 
-class LazyValue(f: => Value) extends SharedValue
+class LazyValue(f: => EvaluatedValue) extends SharedValue with UnevaluatedValue
 {
-  override def argCount = force.argCount
-  
-  override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) =
-    force.fullApply(argValues)(eval)(env)
-      
   override lazy val force = f
   
-  override def toString = force.toString
+  override def copyAsNonShared = NonSharedLazyValue(this)
+  
+  override def shared = SharedLazyValue(this)
 }
 
 object LazyValue
 {
-  def apply(f: => Value) = new LazyValue(f)
+  def apply(f: => EvaluatedValue) = new LazyValue(f)
   
   def unapply(value: LazyValue) = Some(value.force)
 }
 
-case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) extends SharedValue
+case class SharedLazyValue(value: UnevaluatedValue) extends SharedValue with UnevaluatedValue
+{
+  override def copyAsNonShared = NonSharedLazyValue(this)
+  
+  override def force = value.force.shared.force
+}
+
+case class NonSharedLazyValue(value: UnevaluatedValue) extends Value with UnevaluatedValue
+{
+  override def shared = SharedLazyValue(this)
+  
+  override def force = value.force.copyAsNonShared.force  
+}
+
+case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) extends SharedValue with EvaluatedValue
 {
   def stackTraceString = "error: " + message + "\n" + stackTrace.filter { _.isFinal }.mkString("\n")
 
@@ -115,7 +143,7 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
 
 // AbstractSeqValue
 
-trait AbstractSeqValue extends Value
+trait AbstractSeqValue extends EvaluatedValue
 {
   def elems: Seq[Value]
 
@@ -215,7 +243,7 @@ case class NonSharedArrayValue(array: Array[SharedValue]) extends ArrayValue
 
 // AbstractMapValue
 
-trait AbstractMapValue extends Value
+trait AbstractMapValue extends Value with EvaluatedValue
 {
   def elems: Map[SharedValue, SharedValue]
   
@@ -282,7 +310,7 @@ case class NonSharedHashValue(hashMap: mutable.HashMap[SharedValue, SharedValue]
 
 // FunValue
 
-trait FunValue extends Value
+trait FunValue extends EvaluatedValue
 
 case class CombinatorValue(idx: Int, combinatorBind: CombinatorBind) extends FunValue with SharedValue
 {
@@ -343,7 +371,7 @@ case class NonSharedLambdaValue(closure: Seq[Value], lambda: Lambda) extends Lam
 
 // Partial application
 
-trait PartialAppValue extends Value
+trait PartialAppValue extends EvaluatedValue
 {
   def fun: Value
   
@@ -376,7 +404,7 @@ case class NonSharedPartialAppValue(fun: Value, args: Seq[Value]) extends Partia
 
 // LiteralValue
 
-trait LiteralValue extends SharedValue
+trait LiteralValue extends SharedValue with EvaluatedValue
 {
   override def toString =
     this match {

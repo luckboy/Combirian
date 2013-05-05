@@ -17,9 +17,10 @@ object Interpreter
         case errValue: ErrorValue                        =>
           Left(errValue)
         case TupleValue(Seq(outLineValue, nextFunValue)) =>
-          outLineValue match {
+          val evaluatedOutLineValue = outLineValue.force
+          evaluatedOutLineValue match {
             case StringValue(s) => stdOut.println(s)
-            case _              => stdOut.println(outLineValue.toString)
+            case _              => stdOut.println(evaluatedOutLineValue.toString)
           }
           if(nextFunValue != NilValue)
         	interpMainLoop(nextFunValue, stdIn, stdOut)(eval)(env)
