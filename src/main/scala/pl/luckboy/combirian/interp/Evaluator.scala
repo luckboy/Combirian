@@ -16,8 +16,8 @@ trait Evaluator[Env <: EnvironmentLike[Env]]
           case Left(errValue)    => errValue
         }
       case lambda: Lambda            =>
-        val closureVarValues = lambda.closureVarIndexes.map { env.localVarValue(_).shared }
-        NonSharedLambdaValue(closureVarValues.map { _.shared }, lambda)
+        val closureVarValues = lambda.closureVarIndexes.map { env.localVarValue(_) }
+        NonSharedLambdaValue(closureVarValues, lambda)
       case GlobalVar(idx, _)         =>
         env.globalVarValue(idx)
       case TailRecGlobalVar(idx, _)  =>
