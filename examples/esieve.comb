@@ -1,0 +1,23 @@
+eSieveFill = \i step n a ->
+  if(i <= n) eSieveFill (i + step) step n (updated i false a) else a
+
+eSieve = \step n a ->
+  if(step <= n / step)
+    uncurry (\a2 b -> 
+        eSieve (step + 1) n (if(b) eSieveFill (step * 2) step n a2 else a2)
+      ) (nth2 step a)
+  else
+    a
+
+primesFromArray = \i n a v ->
+  if(i <= n)
+    primesFromArray (i + 1) n a (if(nth i a) v + i else v)
+  else
+    v
+
+main = \s ->
+  let
+    n = intfrom s
+  in
+    (primesFromArray 2 n (eSieve 2 n (array (n + 1) true)) [], nil)
+ 
