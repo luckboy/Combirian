@@ -4,10 +4,10 @@ object LazyEvaluator extends Evaluator[Environment]
 {
   override def valueFromTerm(term: Term)(env: Environment) = {
     term match {
-      case _: App =>
+      case _: App | _: Let =>
         val newEnv = env.clone()
         LazyValue(eval(term)(newEnv).force)
-      case _      =>
+      case _               =>
         eval(term)(env)
     }
   }
