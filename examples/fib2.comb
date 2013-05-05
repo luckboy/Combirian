@@ -1,0 +1,7 @@
+fib n f0 f1 =
+  if(n <= 1)
+    if(n == 0) f0 else f1
+  else
+    fib (n - 1) f1 (f0 + f1)
+
+main = \s -> (fib (intfrom s) 0 1, nil)
