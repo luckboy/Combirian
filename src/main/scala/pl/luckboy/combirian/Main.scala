@@ -44,7 +44,11 @@ object Main
   def main(args: Array[String]): Unit = {
     val (opts1, opts2, fileNames) = parseOpts(args.toList, Set(), Map(), Set())
     if(opts1.contains(Opt1.Help)) {
-      println("Usage: combirian [<option> ...] [--] file ...")
+      println("Usage: combirian [<option> ...] <file> ...")
+      println("Options:")
+      println("  -e <evaluator>       choose evaluator (default: eager)")
+      println("  -v                   display details of interpretation")
+      println("  -h                   display this text")
     } else {
       if(!fileNames.isEmpty) {
         val evalName = opts2.getOrElse(Opt2.Evaluator, "eager")
