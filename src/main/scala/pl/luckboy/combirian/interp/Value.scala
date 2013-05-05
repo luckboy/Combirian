@@ -91,12 +91,12 @@ object LazyValue
 
 case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) extends SharedValue
 {
-  def stackTraceString = "error: " + message + "\n" + stackTrace.mkString("\n")
+  def stackTraceString = "error: " + message + "\n" + stackTrace.filter { _.isFinal }.mkString("\n")
 
   override def isError = true
     
   private def lastStackTraceElemAndOthers =
-    stackTrace.lastOption.map { (_, stackTrace.init) }.getOrElse((ErrorStackTraceElement(None, None, NoPosition), Seq()))
+    stackTrace.lastOption.filterNot { _.isFinal }.map { (_, stackTrace.init) }.getOrElse((ErrorStackTraceElement(None, None, NoPosition, false), Seq()))
   
   override def withPos(pos: Position) = {
     val (last, others) = lastStackTraceElemAndOthers
@@ -105,7 +105,7 @@ case class ErrorValue(message: String, stackTrace: Seq[ErrorStackTraceElement]) 
     
   override def withFileAndName(file: Option[java.io.File], name: Option[String]) = {
     val (last, others) = lastStackTraceElemAndOthers
-    ErrorValue(message, others :+ last.copy(file = file, name = name))
+    ErrorValue(message, (others :+ last.copy(file = file, name = name, isFinal = true)) :+ ErrorStackTraceElement(None, None, NoPosition, false))
   }
   
   override def fullApply[Env <: EnvironmentLike[Env]](argValues: Seq[Value])(eval: Evaluator[Env])(env: Env) = this

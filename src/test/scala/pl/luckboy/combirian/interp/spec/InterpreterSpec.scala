@@ -5,6 +5,7 @@ import java.io.ByteArrayOutputStream
 import java.io.PrintStream
 import org.scalatest.FlatSpec
 import org.scalatest.matchers.ShouldMatchers
+import pl.luckboy.combirian.parser.Parser
 import pl.luckboy.combirian.interp._
 
 class InterpreterSpec[Env <: EnvironmentLike[Env]] extends FlatSpec with ShouldMatchers
@@ -17,6 +18,24 @@ class InterpreterSpec[Env <: EnvironmentLike[Env]] extends FlatSpec with ShouldM
       val ps = new PrintStream(baos)
       try {
         Interpreter.interpString(s, br, ps)(eval)(factory).right.map { _ => baos.toString("UTF-8") }
+      } finally {
+        br.close()
+        ps.close()
+      }
+    }
+
+    def interpStringForFile(s: String, in: String, file: java.io.File) = {
+      val sr = new StringReader(in)
+      val baos = new ByteArrayOutputStream()
+      val br = new BufferedReader(sr)
+      val ps = new PrintStream(baos)
+      try {
+        val tree = (for {
+          parseTree <- Parser.parseString(s).right
+          tree <- Transformer.transform(Map(file -> parseTree), None)(Tree.empty).right
+        } yield { tree }).right.get
+        //println(tree)
+        Interpreter.interp(tree, br, ps)(eval)(factory).right.map { _ => baos.toString("UTF-8") }
       } finally {
         br.close()
         ps.close()
@@ -139,6 +158,52 @@ main = \x -> (f (intfrom x) 1 [], nil)
       val s = "main = \\x -> (x + x, main)"
       interpString(s, "Line1\nLine2\nLine3\n") should be ===Right("Line1Line1\nLine2Line2\nLine3Line3\n")
       interpString(s, "Line1\nLine2\nLine3\nLine4") should be ===Right("Line1Line1\nLine2Line2\nLine3Line3\nLine4Line4\n")
+    }
+    
+    it should "complain at the lambda expression" in {
+      val stackTraceString = interpStringForFile("main = \\x -> 0 / 0", "Some thing", new java.io.File("some_file.comb")).left.map {
+        _.stackTraceString
+      }.left.get
+      stackTraceString should be ===(
+          "error: divide by zero\n" +
+          "\tsome_file.comb: <lambda>: 1.14")
+    }
+
+    it should "complain at the nested lambda expression" in {
+      val stackTraceString = interpStringForFile("main = \\x -> (\\y -> 0 / 0) x", "Some thing", new java.io.File("some_file.comb")).left.map {
+        _.stackTraceString
+      }.left.get
+      stackTraceString should be ===(
+          "error: divide by zero\n" +
+          "\tsome_file.comb: <lambda>: 1.21\n" +
+          "\tsome_file.comb: <lambda>: 1.14")
+    }
+
+    it should "complain at the combinator" in {
+      val stackTraceString = interpStringForFile("""
+main = \x -> f x
+f x = 0 / 0
+""", "Some thing", new java.io.File("some_file.comb")).left.map {
+        _.stackTraceString
+      }.left.get
+      stackTraceString should be ===(
+          "error: divide by zero\n" +
+          "\tsome_file.comb: f: 3.7\n" +
+          "\tsome_file.comb: <lambda>: 2.14")
+    }
+    
+    it should "complain at the lambda expression at the combinator" in {
+      val stackTraceString = interpStringForFile("""
+main = \x -> f x x
+f x = (\y -> 0 / 0) x
+""", "Some thing", new java.io.File("some_file.comb")).left.map {
+        _.stackTraceString
+      }.left.get
+      stackTraceString should be ===(
+          "error: divide by zero\n" +
+          "\tsome_file.comb: <lambda>: 3.14\n" +
+          "\tsome_file.comb: f: 3.7\n" +
+          "\tsome_file.comb: <lambda>: 2.14")
     }
   }
   

@@ -230,10 +230,8 @@ object Transformer
             transformTerm(body, true)(newScope)
         }
         zipResults(res, res2).right.map {
-          case (combBinds, body2)=> {
-            
+          case (combBinds, body2) =>            
             (combBinds + (idx -> CombinatorBind(name, Combinator(args.map { _.name }, body2, localVarCountFromTerm(body)), None)))
-          }
         }
     }.right.map(Tree.apply).left.map { errs => errs.sortWith { (err1, err2) => err1.pos < err2.pos } }
     

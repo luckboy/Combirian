@@ -35,11 +35,11 @@ object Interpreter
   def interp[Env <: EnvironmentLike[Env]](tree: Tree, stdIn: BufferedReader, stdOut: PrintStream)(eval: Evaluator[Env])(factory: EnvironmentFactory[Env]): Either[ErrorValue, Unit] =
     Initializer.init(tree)(eval)(factory.empty) match {
       case Right(newEnv)  => 
-        tree.combinatorBinds.find { case (_, comb) => comb.name == "main" }.map {
-          case (idx, comb) => 
+        tree.combinatorBinds.find { case (_, combBind) => combBind.name == "main" }.map {
+          case (idx, combBind) => 
             newEnv.globalVarValue(idx) match {
               case errValue: ErrorValue => Left(errValue)
-              case funValue             => interpMainLoop(funValue, stdIn, stdOut)(eval)(newEnv)
+              case funValue             => interpMainLoop(funValue, stdIn, stdOut)(eval)(newEnv.withCurrentFile(combBind.file))
             }
         }.getOrElse(Left(ErrorValue("undefined global variable main", Seq())))
       case Left(errValue) =>
