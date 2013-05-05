@@ -101,7 +101,7 @@ object Parser extends StandardTokenParsers with PackratParsers
       if(e.chars.startsWith("0x") || e.chars.startsWith("0X"))
         IntValue(java.lang.Long.parseLong(e.chars.substring(2), 16))
       else if(e.chars.startsWith("0"))
-        IntValue(java.lang.Long.parseLong(e.chars.substring(1), 8))
+        IntValue(java.lang.Long.parseLong(e.chars, 8))
       else
         IntValue(java.lang.Long.parseLong(e.chars, 10))
   }
