@@ -148,7 +148,7 @@ object Transformer
           case (firstTerm2, (secondTerm2, condTerm2)) =>
             App(Literal(BuiltinFunValue(BuiltinFunction.Cond), fun.pos), Seq(firstTerm2, secondTerm2, condTerm2), term.pos)
         }
-      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Cond)), Seq(otherTerm, tuple)) =>
+      case parser.App(fun @ parser.Literal(BuiltinFunValue(BuiltinFunction.Uncurry)), Seq(otherTerm, tuple)) =>
         zipResults(
             transformTermForTailRec(otherTerm, canTailRec, 2)(scope),
             transformTerm(tuple, false)(scope)
