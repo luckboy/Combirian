@@ -208,4 +208,6 @@ f x = (\y -> 0 / 0) x
   }
   
   "A interpreter for an eager evaluator" should behave like interpreter(EagerEvaluator)(Environment)
+
+  "A interpreter for an lazy evaluator" should behave like interpreter(LazyEvaluator)(Environment)
 }
