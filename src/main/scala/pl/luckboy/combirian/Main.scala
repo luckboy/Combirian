@@ -91,7 +91,7 @@ object Main
           sys.exit(1)
         }
       } else {
-        Console.err.println("no files")
+        Console.err.println("no file")
         sys.exit(1)
       }
     }
