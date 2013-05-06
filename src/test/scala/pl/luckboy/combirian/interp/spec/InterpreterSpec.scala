@@ -35,7 +35,7 @@ class InterpreterSpec[Env <: EnvironmentLike[Env]] extends FlatSpec with ShouldM
           tree <- Transformer.transform(Map(file -> parseTree), None)(Tree.empty).right
         } yield { tree }).right.get
         //println(tree)
-        Interpreter.interp(tree, br, ps)(eval)(factory).right.map { _ => baos.toString("UTF-8") }
+        Interpreter.interp(tree, br, ps)(eval)(factory)._2.right.map { _ => baos.toString("UTF-8") }
       } finally {
         br.close()
         ps.close()

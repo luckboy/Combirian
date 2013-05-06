@@ -14,6 +14,7 @@ object Main
   private object Opt1 extends Enumeration
   {
     val Verbose = Value ("-v")
+    val Time = Value("-t")
     val Help = Value("-h")
   }
   
@@ -47,6 +48,7 @@ object Main
       println("Usage: combirian [<option> ...] <file> ...")
       println("Options:")
       println("  -e <evaluator>       choose evaluator (default: eager)")
+      println("  -t                   display times of interpretation")
       println("  -v                   display details of interpretation")
       println("  -h                   display this text")
     } else {
@@ -78,9 +80,19 @@ object Main
               if(opts1.contains(Opt1.Verbose)) {
                 println("Interpreter input/output:")
               }
-              interp(tree, Console.in, Console.out) match {
+              val (stats, res) = interp(tree, Console.in, Console.out)
+              res match {
                 case Right(())      => ()
-                case Left(errValue) => Console.err.println(errValue.stackTraceString); sys.exit(1)
+                case Left(errValue) => Console.err.println(errValue.stackTraceString)
+              }
+              if(opts1.contains(Opt1.Time)) {
+                println("Time of initialization: " + stats.initTime + "ms")
+                println("Time of evaluation:     " + stats.evalTime + "ms")
+                println("Time of I/O operations: " + stats.ioTime + "ms")
+              }
+              res match {
+                case Right(())      => ()
+                case Left(errValue) => sys.exit(1)
               }
             }) match {
               case Right(())  => ()
