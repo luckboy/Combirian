@@ -86,6 +86,7 @@ object Main
                 case Left(errValue) => Console.err.println(errValue.stackTraceString)
               }
               if(opts1.contains(Opt1.Time)) {
+                println()
                 println("Time of initialization: " + stats.initTime + "ms")
                 println("Time of evaluation:     " + stats.evalTime + "ms")
                 println("Time of I/O operations: " + stats.ioTime + "ms")
