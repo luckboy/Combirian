@@ -26,7 +26,7 @@ object Parser extends StandardTokenParsers with PackratParsers
     val Nl, NoNl = Value
   }
   
-  case class RighParser[T](parser: Parser[T]) {
+  case class RichParser[T](parser: Parser[T]) {
     def ~~[U] (parser2: Parser[U])(implicit nlMode: NlMode.Value) =
       nlMode match {
       	case NlMode.Nl   => this ~- parser2
@@ -68,9 +68,9 @@ object Parser extends StandardTokenParsers with PackratParsers
     def -* = ((this -+) ?) ^^ { _.getOrElse(Nil) }
   }
   
-  implicit def parserToRighParser[T](parser: Parser[T]) = new RighParser(parser)
-  implicit def elemToRighParser(elem: Elem) = new RighParser(elem)
-  implicit def stringToRighParser(s: String) = RighParser[String](s)
+  implicit def parserToRighParser[T](parser: Parser[T]) = new RichParser(parser)
+  implicit def elemToRighParser(elem: Elem) = new RichParser(elem)
+  implicit def stringToRighParser(s: String) = RichParser[String](s)
   
   def p[T <: Positional](parser: Parser[T]) = positioned(parser)
   
